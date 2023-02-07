@@ -6,7 +6,7 @@
 # ----------------------------------------------------------------------
 
 AC_PREREQ([2.69])
-AC_INIT([htop], [3.2.2-dev], [htop@groups.io], [], [https://htop.dev/])
+AC_INIT([htop], [3.3.0-dev], [htop@groups.io], [], [https://htop.dev/])
 
 AC_CONFIG_SRCDIR([htop.c])
 AC_CONFIG_AUX_DIR([build-aux])
@@ -260,6 +260,8 @@ AC_CHECK_FUNCS([ \
     memfd_create\
     openat \
     readlinkat \
+    sched_getscheduler \
+    sched_setscheduler \
    ])
 
 if test "$my_htop_platform" = darwin; then
