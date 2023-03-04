@@ -34,12 +34,13 @@ printf "${CYA}\n" &&
 # Build htop
 export NINJA_SUMMARIZE_BUILD=1 &&
 
-export CFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -mavx -maes"
-export CPPFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -mavx -maes"
-export HWLOC_CFLAGS="-g0 -s -O3 -mavx -maes"
-export LIBNL3GENL_CFLAGS="-g0 -s -O3 -mavx -maes"
-export LIBNL3_CFLAGS="-g0 -s -O3 -mavx -maes"
-export LDFLAGS="-Wl,-O3 -mavx -maes"
+export CFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -mavx -maes" &&
+export CXXFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -mavx -maes" &&
+export CPPFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -mavx -maes" &&
+export HWLOC_CFLAGS="-g0 -s -O3 -mavx -maes" &&
+export LIBNL3GENL_CFLAGS="-g0 -s -O3 -mavx -maes" &&
+export LIBNL3_CFLAGS="-g0 -s -O3 -mavx -maes" &&
+export LDFLAGS="-Wl,-O3 -mavx -maes" &&
 
 ./autogen.sh &&
 
@@ -48,7 +49,7 @@ export LDFLAGS="-Wl,-O3 -mavx -maes"
 make VERBOSE=1 V=1 &&
 
 printf "\n" &&
-printf "${GRE}${bold}Build Completed. ${YEL}${bold}You can now sudo make install or make install to install it.\n" &&
+printf "${GRE}${bold}Build Completed. ${YEL}${bold}You can now run \`sudo make install\` or \`make install\` to install it.\n" &&
 printf "\n" &&
 tput sgr0 &&
 
