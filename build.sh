@@ -19,6 +19,9 @@ try() { "$@" || die "${RED}Failed $*"; }
 displayHelp () {
 	printf "\n" &&
 	printf "${bold}${GRE}Script to build htop on Linux.${c0}\n" &&
+	printf "${bold}${YEL}Use the --clean flag to run \`make clean\` & \`make distclean\`.${c0}\n" &&
+	printf "${bold}${YEL}Use the --debug flag to make a debug build.${c0}\n" &&
+	printf "${bold}${YEL}Use the --help flag to show this help.${c0}\n" &&
 	printf "\n"
 }
 
@@ -26,9 +29,9 @@ case $1 in
 	--help) displayHelp; exit 0;;
 esac
 
+makeClean () {
 printf "\n" &&
-printf "${bold}${GRE}Script to build htop on Linux.${c0}\n" &&
-printf "${YEL}Building htop...\n" &&
+printf "${YEL}Running \`make clean\` and \`make distclean\`...\n" &&
 printf "${CYA}\n" &&
 
 # Build htop
@@ -41,6 +44,55 @@ export HWLOC_CFLAGS="-g0 -s -O3 -mavx -maes" &&
 export LIBNL3GENL_CFLAGS="-g0 -s -O3 -mavx -maes" &&
 export LIBNL3_CFLAGS="-g0 -s -O3 -mavx -maes" &&
 export LDFLAGS="-Wl,-O3 -mavx -maes" &&
+
+make clean && make distclean &&
+
+printf "\n" &&
+printf "${GRE}${bold}Done.\n" &&
+printf "\n" &&
+tput sgr0
+}
+case $1 in
+	--clean) makeClean; exit 0;;
+esac
+
+buildDebug () {
+printf "\n" &&
+printf "${YEL}Building htop (debug)...\n" &&
+printf "${CYA}\n" &&
+
+# Build htop
+export NINJA_SUMMARIZE_BUILD=1 &&
+
+./autogen.sh &&
+
+./configure --enable-sensors --enable-hwloc --with-os-release --enable-debug &&
+
+make VERBOSE=1 V=1 &&
+
+printf "\n" &&
+printf "${GRE}${bold}Debug Build Completed. ${YEL}${bold}You can now run \`sudo make install\` or \`make install\` to install it.\n" &&
+printf "\n" &&
+tput sgr0
+}
+case $1 in
+	--debug) buildDebug; exit 0;;
+esac
+
+printf "\n" &&
+printf "${YEL}Building htop...\n" &&
+printf "${CYA}\n" &&
+
+# Build htop
+export NINJA_SUMMARIZE_BUILD=1 &&
+
+export CFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -mavx -maes -flto=auto" &&
+export CXXFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -mavx -maes -flto=auto" &&
+export CPPFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -mavx -maes -flto=auto" &&
+export HWLOC_CFLAGS="-g0 -s -O3 -mavx -maes -flto=auto" &&
+export LIBNL3GENL_CFLAGS="-g0 -s -O3 -mavx -maes -flto=auto" &&
+export LIBNL3_CFLAGS="-g0 -s -O3 -mavx -maes -flto=auto" &&
+export LDFLAGS="-Wl,-O3 -mavx -maes -flto=auto" &&
 
 ./autogen.sh &&
 
