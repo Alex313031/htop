@@ -24,7 +24,6 @@ displayHelp () {
 	printf "${bold}${YEL}Use the --help flag to show this help.${c0}\n" &&
 	printf "\n"
 }
-
 case $1 in
 	--help) displayHelp; exit 0;;
 esac
@@ -34,7 +33,7 @@ printf "\n" &&
 printf "${YEL}Running \`make clean\` and \`make distclean\`...\n" &&
 printf "${CYA}\n" &&
 
-# Build htop
+# Clean artifacts
 export NINJA_SUMMARIZE_BUILD=1 &&
 
 export CFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -mavx -maes" &&
@@ -61,7 +60,7 @@ printf "\n" &&
 printf "${YEL}Building htop (debug)...\n" &&
 printf "${CYA}\n" &&
 
-# Build htop
+# Build debug htop
 export NINJA_SUMMARIZE_BUILD=1 &&
 
 ./autogen.sh &&
