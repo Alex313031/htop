@@ -205,13 +205,12 @@ double Platform_setCPUValues(Meter* this, unsigned int cpu) {
       v[CPU_METER_IOWAIT]  = 0.0;
       v[CPU_METER_FREQUENCY] = NAN;
       this->curItems = 8;
-      totalPercent = v[0] + v[1] + v[2] + v[3];
    } else {
-      v[2] = cpuData->sysAllPeriod / total * 100.0;
-      v[3] = 0.0; // No steal nor guest on OpenBSD
-      totalPercent = v[0] + v[1] + v[2];
+      v[CPU_METER_KERNEL] = cpuData->sysAllPeriod / total * 100.0;
+      v[CPU_METER_IRQ] = 0.0; // No steal nor guest on OpenBSD
       this->curItems = 4;
    }
+   totalPercent = v[CPU_METER_NICE] + v[CPU_METER_NORMAL] + v[CPU_METER_KERNEL] + v[CPU_METER_IRQ];
 
    totalPercent = CLAMP(totalPercent, 0.0, 100.0);
 
