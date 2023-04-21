@@ -59,12 +59,12 @@ static int MIB_kern_cp_time[2];
 static int MIB_kern_cp_times[2];
 static int kernelFScale;
 
-ProcessList* ProcessList_new(UsersTable* usersTable, Hashtable* dynamicMeters, Hashtable* DynamicColumns, Hashtable* pidMatchList, uid_t userId) {
+ProcessList* ProcessList_new(UsersTable* usersTable, Hashtable* pidMatchList, uid_t userId) {
    size_t len;
    char errbuf[_POSIX2_LINE_MAX];
    FreeBSDProcessList* fpl = xCalloc(1, sizeof(FreeBSDProcessList));
    ProcessList* pl = (ProcessList*) fpl;
-   ProcessList_init(pl, Class(FreeBSDProcess), usersTable, dynamicMeters, DynamicColumns, pidMatchList, userId);
+   ProcessList_init(pl, Class(FreeBSDProcess), usersTable, pidMatchList, userId);
 
    // physical memory in system: hw.physmem
    // physical page size: hw.pagesize
@@ -367,7 +367,7 @@ static inline void FreeBSDProcessList_scanMemoryInfo(ProcessList* pl) {
 
    len = sizeof(vmtotal);
    sysctl(MIB_vm_vmtotal, 2, &(vmtotal), &len, NULL, 0);
-   pl->sharedMem = vmtotal.t_vmshr * pageSizeKb;
+   pl->sharedMem = vmtotal.t_rmshr * pageSizeKb;
 
    pl->usedMem = fpl->memActive + fpl->memWire;
 

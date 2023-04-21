@@ -5,6 +5,7 @@ Released under the GNU GPLv2+, see the COPYING file
 in the source distribution for its full text.
 */
 
+#include "ZramMeter.h"
 #include "config.h"
 
 #include "linux/Platform.h"
@@ -382,8 +383,8 @@ void Platform_setSwapValues(Meter* this) {
 void Platform_setZramValues(Meter* this) {
    const LinuxProcessList* lpl = (const LinuxProcessList*) this->pl;
    this->total = lpl->zram.totalZram;
-   this->values[0] = lpl->zram.usedZramComp;
-   this->values[1] = lpl->zram.usedZramOrig;
+   this->values[ZRAM_METER_COMPRESSED] = lpl->zram.usedZramComp;
+   this->values[ZRAM_METER_UNCOMPRESSED] = lpl->zram.usedZramOrig;
 }
 
 void Platform_setZfsArcValues(Meter* this) {
@@ -458,16 +459,16 @@ FileLocks_ProcessData* Platform_getProcessLocks(pid_t pid) {
          continue;
 
       errno = 0;
-      char *end = de->d_name;
+      char* end = de->d_name;
       int file = strtoull(de->d_name, &end, 10);
       if (errno || *end)
          continue;
 
       int fd = openat(dfd, de->d_name, O_RDONLY | O_CLOEXEC);
-      if(fd == -1)
+      if (fd == -1)
          continue;
-      FILE *f = fdopen(fd, "r");
-      if(!f) {
+      FILE* f = fdopen(fd, "r");
+      if (!f) {
          close(fd);
          continue;
       }
