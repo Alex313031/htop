@@ -359,6 +359,7 @@ void Platform_setMemoryValues(Meter* this) {
    this->values[MEMORY_METER_USED] = pl->usedMem;
    this->values[MEMORY_METER_BUFFERS] = pl->buffersMem;
    this->values[MEMORY_METER_SHARED] = pl->sharedMem;
+   this->values[MEMORY_METER_COMPRESSED] = 0; /* compressed */
    this->values[MEMORY_METER_CACHE] = pl->cachedMem;
    this->values[MEMORY_METER_AVAILABLE] = pl->availableMem;
 
@@ -371,13 +372,41 @@ void Platform_setMemoryValues(Meter* this) {
       this->values[MEMORY_METER_CACHE] += shrinkableSize;
       this->values[MEMORY_METER_AVAILABLE] += shrinkableSize;
    }
+
+   if (lpl->zswap.usedZswapOrig > 0 || lpl->zswap.usedZswapComp > 0) {
+      this->values[MEMORY_METER_USED] -= lpl->zswap.usedZswapComp;
+      this->values[MEMORY_METER_COMPRESSED] += lpl->zswap.usedZswapComp;
+   }
 }
 
 void Platform_setSwapValues(Meter* this) {
    const ProcessList* pl = this->pl;
+   const LinuxProcessList* lpl = (const LinuxProcessList*) pl;
+
    this->total = pl->totalSwap;
-   this->values[0] = pl->usedSwap;
-   this->values[1] = pl->cachedSwap;
+   this->values[SWAP_METER_USED] = pl->usedSwap;
+   this->values[SWAP_METER_CACHE] = pl->cachedSwap;
+   this->values[SWAP_METER_FRONTSWAP] = 0; /* frontswap -- memory that is accounted to swap but resides elsewhere */
+
+   if (lpl->zswap.usedZswapOrig > 0 || lpl->zswap.usedZswapComp > 0) {
+      /*
+       * FIXME: Zswapped pages can be both SwapUsed and SwapCached, and we do not know which.
+       *
+       * Apparently, it is possible that Zswapped > SwapUsed. This means that some of Zswapped pages
+       * were actually SwapCached, nor SwapUsed. Unfortunately, we cannot tell what exactly portion
+       * of Zswapped pages were SwapCached.
+       *
+       * For now, subtract Zswapped from SwapUsed and only if Zswapped > SwapUsed, subtract the
+       * overflow from SwapCached.
+       */
+      this->values[SWAP_METER_USED] -= lpl->zswap.usedZswapOrig;
+      if (this->values[SWAP_METER_USED] < 0) {
+         /* subtract the overflow from SwapCached */
+         this->values[SWAP_METER_CACHE] += this->values[SWAP_METER_USED];
+         this->values[SWAP_METER_USED] = 0;
+      }
+      this->values[SWAP_METER_FRONTSWAP] += lpl->zswap.usedZswapOrig;
+   }
 }
 
 void Platform_setZramValues(Meter* this) {
