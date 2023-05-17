@@ -44,7 +44,7 @@ in the source distribution for its full text.
 #include "SysArchMeter.h"
 #include "TasksMeter.h"
 #include "UptimeMeter.h"
-#include "darwin/DarwinProcessList.h"
+#include "darwin/DarwinMachine.h"
 #include "darwin/PlatformHelpers.h"
 #include "generic/fdstat_sysctl.h"
 #include "zfs/ZfsArcMeter.h"
@@ -233,13 +233,13 @@ int Platform_getMaxPid(void) {
 }
 
 static double Platform_setCPUAverageValues(Meter* mtr) {
-   const ProcessList* dpl = mtr->pl;
-   unsigned int activeCPUs = dpl->activeCPUs;
+   const Machine* host = mtr->host;
+   unsigned int activeCPUs = host->activeCPUs;
    double sumNice = 0.0;
    double sumNormal = 0.0;
    double sumKernel = 0.0;
    double sumPercent = 0.0;
-   for (unsigned int i = 1; i <= dpl->existingCPUs; i++) {
+   for (unsigned int i = 1; i <= host->existingCPUs; i++) {
       sumPercent += Platform_setCPUValues(mtr, i);
       sumNice    += mtr->values[CPU_METER_NICE];
       sumNormal  += mtr->values[CPU_METER_NORMAL];
@@ -257,9 +257,9 @@ double Platform_setCPUValues(Meter* mtr, unsigned int cpu) {
       return Platform_setCPUAverageValues(mtr);
    }
 
-   const DarwinProcessList* dpl = (const DarwinProcessList*)mtr->pl;
-   const processor_cpu_load_info_t prev = &dpl->prev_load[cpu - 1];
-   const processor_cpu_load_info_t curr = &dpl->curr_load[cpu - 1];
+   const DarwinMachine* dhost = (const DarwinMachine*) mtr->host;
+   const processor_cpu_load_info_t prev = &dhost->prev_load[cpu - 1];
+   const processor_cpu_load_info_t curr = &dhost->curr_load[cpu - 1];
    double total = 0;
 
    /* Take the sums */
@@ -286,11 +286,11 @@ double Platform_setCPUValues(Meter* mtr, unsigned int cpu) {
 }
 
 void Platform_setMemoryValues(Meter* mtr) {
-   const DarwinProcessList* dpl = (const DarwinProcessList*)mtr->pl;
-   const struct vm_statistics* vm = &dpl->vm_stats;
+   const DarwinMachine* dhost = (const DarwinMachine*) mtr->host;
+   const struct vm_statistics* vm = &dhost->vm_stats;
    double page_K = (double)vm_page_size / (double)1024;
 
-   mtr->total = dpl->host_info.max_mem / 1024;
+   mtr->total = dhost->host_info.max_mem / 1024;
    mtr->values[MEMORY_METER_USED] = (double)(vm->active_count + vm->wire_count) * page_K;
    mtr->values[MEMORY_METER_BUFFERS] = (double)vm->purgeable_count * page_K;
    // mtr->values[MEMORY_METER_SHARED] = "shared memory, like tmpfs and shm"
@@ -312,15 +312,15 @@ void Platform_setSwapValues(Meter* mtr) {
 }
 
 void Platform_setZfsArcValues(Meter* this) {
-   const DarwinProcessList* dpl = (const DarwinProcessList*) this->pl;
+   const DarwinMachine* dhost = (const DarwinMachine*) this->host;
 
-   ZfsArcMeter_readStats(this, &(dpl->zfs));
+   ZfsArcMeter_readStats(this, &dhost->zfs);
 }
 
 void Platform_setZfsCompressedArcValues(Meter* this) {
-   const DarwinProcessList* dpl = (const DarwinProcessList*) this->pl;
+   const DarwinMachine* dhost = (const DarwinMachine*) this->host;
 
-   ZfsCompressedArcMeter_readStats(this, &(dpl->zfs));
+   ZfsCompressedArcMeter_readStats(this, &dhost->zfs);
 }
 
 char* Platform_getProcessEnv(pid_t pid) {

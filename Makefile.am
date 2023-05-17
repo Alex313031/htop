@@ -60,6 +60,7 @@ myhtopsources = \
 	InfoScreen.c \
 	ListItem.c \
 	LoadAverageMeter.c \
+	Machine.c \
 	MainPanel.c \
 	MemoryMeter.c \
 	MemorySwapMeter.c \
@@ -122,6 +123,7 @@ myhtopheaders = \
 	InfoScreen.h \
 	ListItem.h \
 	LoadAverageMeter.h \
+	Machine.h \
 	Macros.h \
 	MainPanel.h \
 	MemoryMeter.h \
@@ -164,6 +166,7 @@ linux_platform_headers = \
 	linux/IOPriority.h \
 	linux/IOPriorityPanel.h \
 	linux/LibSensors.h \
+	linux/LinuxMachine.h \
 	linux/LinuxProcess.h \
 	linux/LinuxProcessList.h \
 	linux/Platform.h \
@@ -186,6 +189,7 @@ linux_platform_sources = \
 	linux/HugePageMeter.c \
 	linux/IOPriorityPanel.c \
 	linux/LibSensors.c \
+	linux/LinuxMachine.c \
 	linux/LinuxProcess.c \
 	linux/LinuxProcessList.c \
 	linux/Platform.c \
@@ -206,6 +210,7 @@ endif
 # -------
 
 freebsd_platform_headers = \
+	freebsd/FreeBSDMachine.h \
 	freebsd/FreeBSDProcessList.h \
 	freebsd/FreeBSDProcess.h \
 	freebsd/Platform.h \
@@ -221,6 +226,7 @@ freebsd_platform_headers = \
 
 freebsd_platform_sources = \
 	freebsd/Platform.c \
+	freebsd/FreeBSDMachine.c \
 	freebsd/FreeBSDProcessList.c \
 	freebsd/FreeBSDProcess.c \
 	generic/fdstat_sysctl.c \
@@ -240,6 +246,7 @@ endif
 # ------------
 
 dragonflybsd_platform_headers = \
+	dragonflybsd/DragonFlyBSDMachine.h \
 	dragonflybsd/DragonFlyBSDProcessList.h \
 	dragonflybsd/DragonFlyBSDProcess.h \
 	dragonflybsd/Platform.h \
@@ -250,6 +257,7 @@ dragonflybsd_platform_headers = \
 	generic/uname.h
 
 dragonflybsd_platform_sources = \
+	dragonflybsd/DragonFlyBSDMachine.c \
 	dragonflybsd/DragonFlyBSDProcessList.c \
 	dragonflybsd/DragonFlyBSDProcess.c \
 	dragonflybsd/Platform.c \
@@ -273,6 +281,7 @@ netbsd_platform_headers = \
 	generic/uname.h \
 	netbsd/Platform.h \
 	netbsd/ProcessField.h \
+	netbsd/NetBSDMachine.h \
 	netbsd/NetBSDProcess.h \
 	netbsd/NetBSDProcessList.h
 
@@ -282,6 +291,7 @@ netbsd_platform_sources = \
 	generic/hostname.c \
 	generic/uname.c \
 	netbsd/Platform.c \
+	netbsd/NetBSDMachine.c \
 	netbsd/NetBSDProcess.c \
 	netbsd/NetBSDProcessList.c
 
@@ -297,6 +307,7 @@ openbsd_platform_headers = \
 	generic/gettime.h \
 	generic/hostname.h \
 	generic/uname.h \
+	openbsd/OpenBSDMachine.h \
 	openbsd/OpenBSDProcessList.h \
 	openbsd/OpenBSDProcess.h \
 	openbsd/Platform.h \
@@ -306,6 +317,7 @@ openbsd_platform_sources = \
 	generic/gettime.c \
 	generic/hostname.c \
 	generic/uname.c \
+	openbsd/OpenBSDMachine.c \
 	openbsd/OpenBSDProcessList.c \
 	openbsd/OpenBSDProcess.c \
 	openbsd/Platform.c
@@ -319,6 +331,7 @@ endif
 # ------
 
 darwin_platform_headers = \
+	darwin/DarwinMachine.h \
 	darwin/DarwinProcess.h \
 	darwin/DarwinProcessList.h \
 	darwin/Platform.h \
@@ -336,6 +349,7 @@ darwin_platform_headers = \
 darwin_platform_sources = \
 	darwin/Platform.c \
 	darwin/PlatformHelpers.c \
+	darwin/DarwinMachine.c \
 	darwin/DarwinProcess.c \
 	darwin/DarwinProcessList.c \
 	generic/fdstat_sysctl.c \
@@ -361,6 +375,7 @@ solaris_platform_headers = \
 	generic/uname.h \
 	solaris/ProcessField.h \
 	solaris/Platform.h \
+	solaris/SolarisMachine.h \
 	solaris/SolarisProcess.h \
 	solaris/SolarisProcessList.h \
 	zfs/ZfsArcMeter.h \
@@ -372,6 +387,7 @@ solaris_platform_sources = \
 	generic/hostname.c \
 	generic/uname.c \
 	solaris/Platform.c \
+	solaris/SolarisMachine.c \
 	solaris/SolarisProcess.c \
 	solaris/SolarisProcessList.c \
 	zfs/ZfsArcMeter.c \
@@ -391,6 +407,7 @@ pcp_platform_headers = \
 	linux/ZramStats.h \
 	pcp/PCPDynamicColumn.h \
 	pcp/PCPDynamicMeter.h \
+	pcp/PCPMachine.h \
 	pcp/PCPMetric.h \
 	pcp/PCPProcess.h \
 	pcp/PCPProcessList.h \
@@ -405,6 +422,7 @@ pcp_platform_sources = \
 	linux/ZramMeter.c \
 	pcp/PCPDynamicColumn.c \
 	pcp/PCPDynamicMeter.c \
+	pcp/PCPMachine.c \
 	pcp/PCPMetric.c \
 	pcp/PCPProcess.c \
 	pcp/PCPProcessList.c \
@@ -425,12 +443,14 @@ unsupported_platform_headers = \
 	generic/gettime.h \
 	unsupported/Platform.h \
 	unsupported/ProcessField.h \
+	unsupported/UnsupportedMachine.h \
 	unsupported/UnsupportedProcess.h \
 	unsupported/UnsupportedProcessList.h
 
 unsupported_platform_sources = \
 	generic/gettime.c \
 	unsupported/Platform.c \
+	unsupported/UnsupportedMachine.c \
 	unsupported/UnsupportedProcess.c \
 	unsupported/UnsupportedProcessList.c
 
