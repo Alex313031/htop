@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2022 Alex313031.
+# Copyright (c) 2023 Alex313031.
 
 YEL='\033[1;33m' # Yellow
 CYA='\033[1;96m' # Cyan
@@ -40,9 +40,6 @@ export NINJA_SUMMARIZE_BUILD=1 &&
 export CFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -mavx -maes" &&
 export CXXFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -mavx -maes" &&
 export CPPFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -mavx -maes" &&
-export HWLOC_CFLAGS="-g0 -s -O3 -mavx -maes" &&
-export LIBNL3GENL_CFLAGS="-g0 -s -O3 -mavx -maes" &&
-export LIBNL3_CFLAGS="-g0 -s -O3 -mavx -maes" &&
 export LDFLAGS="-Wl,-O3 -mavx -maes" &&
 
 make clean && make distclean &&
@@ -90,9 +87,6 @@ export NINJA_SUMMARIZE_BUILD=1 &&
 export CFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -msse4.1 -flto=auto" &&
 export CXXFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -msse4.1 -flto=auto" &&
 export CPPFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -msse4.1 -flto=auto" &&
-export HWLOC_CFLAGS="-g0 -s -O3 -msse4.1 -flto=auto" &&
-export LIBNL3GENL_CFLAGS="-g0 -s -O3 -msse4.1 -flto=auto" &&
-export LIBNL3_CFLAGS="-g0 -s -O3 -msse4.1 -flto=auto" &&
 export LDFLAGS="-Wl,-O3 -msse4.1 -s -flto=auto" &&
 
 ./autogen.sh &&
@@ -120,9 +114,6 @@ export NINJA_SUMMARIZE_BUILD=1 &&
 export CFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -mavx -maes -flto=auto" &&
 export CXXFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -mavx -maes -flto=auto" &&
 export CPPFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -mavx -maes -flto=auto" &&
-export HWLOC_CFLAGS="-g0 -s -O3 -mavx -maes -flto=auto" &&
-export LIBNL3GENL_CFLAGS="-g0 -s -O3 -mavx -maes -flto=auto" &&
-export LIBNL3_CFLAGS="-g0 -s -O3 -mavx -maes -flto=auto" &&
 export LDFLAGS="-Wl,-O3 -mavx -maes -s -flto=auto" &&
 
 ./autogen.sh &&
