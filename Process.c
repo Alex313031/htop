@@ -757,7 +757,7 @@ void Process_printRate(RichString* str, double rate, bool coloring) {
       processMegabytesColor = CRT_colors[PROCESS];
    }
 
-   if (isnan(rate)) {
+   if (!isNonnegative(rate)) {
       RichString_appendAscii(str, shadowColor, "        N/A ");
    } else if (rate < 0.005) {
       int len = snprintf(buffer, sizeof(buffer), "%7.2f B/s ", rate);
@@ -789,8 +789,8 @@ void Process_printLeftAlignedField(RichString* str, int attr, const char* conten
    RichString_appendChr(str, attr, ' ', width + 1 - columns);
 }
 
-void Process_printPercentage(float val, char* buffer, int n, uint8_t width, int* attr) {
-   if (val >= 0) {
+void Process_printPercentage(float val, char* buffer, size_t n, uint8_t width, int* attr) {
+   if (isNonnegative(val)) {
       if (val < 0.05F)
          *attr = CRT_colors[PROCESS_SHADOW];
       else if (val >= 99.9F)
@@ -1182,7 +1182,7 @@ int Process_compareByKey_Base(const Process* p1, const Process* p2, ProcessField
    switch (key) {
    case PERCENT_CPU:
    case PERCENT_NORM_CPU:
-      return SPACESHIP_NUMBER(p1->percent_cpu, p2->percent_cpu);
+      return compareRealNumbers(p1->percent_cpu, p2->percent_cpu);
    case PERCENT_MEM:
       return SPACESHIP_NUMBER(p1->m_resident, p2->m_resident);
    case COMM:

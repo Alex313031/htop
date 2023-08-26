@@ -192,6 +192,19 @@ bool LinuxProcess_changeAutogroupPriorityBy(Process* this, Arg delta) {
    return success;
 }
 
+static double LinuxProcess_totalIORate(const LinuxProcess* lp) {
+   double totalRate = NAN;
+   if (isNonnegative(lp->io_rate_read_bps)) {
+      totalRate = lp->io_rate_read_bps;
+      if (isNonnegative(lp->io_rate_write_bps)) {
+         totalRate += lp->io_rate_write_bps;
+      }
+   } else if (isNonnegative(lp->io_rate_write_bps)) {
+      totalRate = lp->io_rate_write_bps;
+   }
+   return totalRate;
+}
+
 static void LinuxProcess_writeField(const Process* this, RichString* str, ProcessField field) {
    const LinuxProcess* lp = (const LinuxProcess*) this;
    const LinuxMachine* lhost = (const LinuxMachine*) this->host;
@@ -230,19 +243,7 @@ static void LinuxProcess_writeField(const Process* this, RichString* str, Proces
    case CNCLWB: Process_printBytes(str, lp->io_cancelled_write_bytes, coloring); return;
    case IO_READ_RATE:  Process_printRate(str, lp->io_rate_read_bps, coloring); return;
    case IO_WRITE_RATE: Process_printRate(str, lp->io_rate_write_bps, coloring); return;
-   case IO_RATE: {
-      double totalRate;
-      if (!isnan(lp->io_rate_read_bps) && !isnan(lp->io_rate_write_bps))
-         totalRate = lp->io_rate_read_bps + lp->io_rate_write_bps;
-      else if (!isnan(lp->io_rate_read_bps))
-         totalRate = lp->io_rate_read_bps;
-      else if (!isnan(lp->io_rate_write_bps))
-         totalRate = lp->io_rate_write_bps;
-      else
-         totalRate = NAN;
-      Process_printRate(str, totalRate, coloring);
-      return;
-   }
+   case IO_RATE: Process_printRate(str, LinuxProcess_totalIORate(lp), coloring); return;
    #ifdef HAVE_OPENVZ
    case CTID: xSnprintf(buffer, n, "%-8s ", lp->ctid ? lp->ctid : ""); break;
    case VPID: xSnprintf(buffer, n, "%*d ", Process_pidDigits, lp->vpid); break;
@@ -309,13 +310,6 @@ static void LinuxProcess_writeField(const Process* this, RichString* str, Proces
    RichString_appendAscii(str, attr, buffer);
 }
 
-static double adjustNaN(double num) {
-   if (isnan(num))
-      return -0.0005;
-
-   return num;
-}
-
 static int LinuxProcess_compareByKey(const Process* v1, const Process* v2, ProcessField key) {
    const LinuxProcess* p1 = (const LinuxProcess*)v1;
    const LinuxProcess* p2 = (const LinuxProcess*)v2;
@@ -358,11 +352,11 @@ static int LinuxProcess_compareByKey(const Process* v1, const Process* v2, Proce
    case CNCLWB:
       return SPACESHIP_NUMBER(p1->io_cancelled_write_bytes, p2->io_cancelled_write_bytes);
    case IO_READ_RATE:
-      return SPACESHIP_NUMBER(adjustNaN(p1->io_rate_read_bps), adjustNaN(p2->io_rate_read_bps));
+      return compareRealNumbers(p1->io_rate_read_bps, p2->io_rate_read_bps);
    case IO_WRITE_RATE:
-      return SPACESHIP_NUMBER(adjustNaN(p1->io_rate_write_bps), adjustNaN(p2->io_rate_write_bps));
+      return compareRealNumbers(p1->io_rate_write_bps, p2->io_rate_write_bps);
    case IO_RATE:
-      return SPACESHIP_NUMBER(adjustNaN(p1->io_rate_read_bps) + adjustNaN(p1->io_rate_write_bps), adjustNaN(p2->io_rate_read_bps) + adjustNaN(p2->io_rate_write_bps));
+      return compareRealNumbers(LinuxProcess_totalIORate(p1), LinuxProcess_totalIORate(p2));
    #ifdef HAVE_OPENVZ
    case CTID:
       return SPACESHIP_NULLSTR(p1->ctid, p2->ctid);
@@ -381,11 +375,11 @@ static int LinuxProcess_compareByKey(const Process* v1, const Process* v2, Proce
       return SPACESHIP_NUMBER(p1->oom, p2->oom);
    #ifdef HAVE_DELAYACCT
    case PERCENT_CPU_DELAY:
-      return SPACESHIP_NUMBER(p1->cpu_delay_percent, p2->cpu_delay_percent);
+      return compareRealNumbers(p1->cpu_delay_percent, p2->cpu_delay_percent);
    case PERCENT_IO_DELAY:
-      return SPACESHIP_NUMBER(p1->blkio_delay_percent, p2->blkio_delay_percent);
+      return compareRealNumbers(p1->blkio_delay_percent, p2->blkio_delay_percent);
    case PERCENT_SWAP_DELAY:
-      return SPACESHIP_NUMBER(p1->swapin_delay_percent, p2->swapin_delay_percent);
+      return compareRealNumbers(p1->swapin_delay_percent, p2->swapin_delay_percent);
    #endif
    case IO_PRIORITY:
       return SPACESHIP_NUMBER(LinuxProcess_effectiveIOPriority(p1), LinuxProcess_effectiveIOPriority(p2));

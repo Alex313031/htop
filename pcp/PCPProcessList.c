@@ -134,8 +134,8 @@ static void PCPProcessList_updateID(Process* process, int pid, int offset) {
    process->state = PCPProcessList_getProcessState(Metric_instance_char(PCP_PROC_STATE, pid, offset, '?'));
 }
 
-static void PCPProcessList_updateInfo(Process* process, int pid, int offset, char* command, size_t commLen) {
-   PCPProcess* pp = (PCPProcess*) process;
+static void PCPProcessList_updateInfo(PCPProcess* pp, int pid, int offset, char* command, size_t commLen) {
+   Process* process = &pp->super;
    pmAtomValue value;
 
    if (!PCPMetric_instance(PCP_PROC_CMD, pid, offset, &value, PM_TYPE_STRING))
@@ -371,14 +371,16 @@ static bool PCPProcessList_updateProcesses(PCPProcessList* this) {
       unsigned int tty_nr = proc->tty_nr;
       unsigned long long int lasttimes = pp->utime + pp->stime;
 
-      PCPProcessList_updateInfo(proc, pid, offset, command, sizeof(command));
+      PCPProcessList_updateInfo(pp, pid, offset, command, sizeof(command));
       proc->starttime_ctime += Platform_getBootTime();
       if (tty_nr != proc->tty_nr)
          PCPProcessList_updateTTY(proc, pid, offset);
 
-      float percent_cpu = (pp->utime + pp->stime - lasttimes) / phost->period * 100.0;
-      proc->percent_cpu = isnan(percent_cpu) ?
-                          0.0 : CLAMP(percent_cpu, 0.0, host->activeCPUs * 100.0);
+      proc->percent_cpu = NAN;
+      if (phost->period > 0.0) {
+         float percent_cpu = saturatingSub(pp->utime + pp->stime, lasttimes) / phost->period * 100.0;
+         proc->percent_cpu = MINIMUM(percent_cpu, host->activeCPUs * 100.0F);
+      }
       proc->percent_mem = proc->m_resident / (double) host->totalMem * 100.0;
       Process_updateCPUFieldWidths(proc->percent_cpu);
 
