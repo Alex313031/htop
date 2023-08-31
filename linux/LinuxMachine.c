@@ -337,6 +337,9 @@ static void LinuxMachine_scanZramInfo(LinuxMachine* this) {
    this->zram.totalZram = totalZram / 1024;
    this->zram.usedZramComp = usedZramComp / 1024;
    this->zram.usedZramOrig = usedZramOrig / 1024;
+   if (this->zram.usedZramComp > this->zram.usedZramOrig) {
+      this->zram.usedZramComp = this->zram.usedZramOrig;
+   }
 }
 
 static void LinuxMachine_scanZfsArcstats(LinuxMachine* this) {
@@ -502,7 +505,8 @@ static void LinuxMachine_scanCPUTime(LinuxMachine* this) {
    char buffer[PROC_LINE_LENGTH + 1];
    while (fgets(buffer, sizeof(buffer), file)) {
       if (String_startsWith(buffer, "procs_running")) {
-         this->runningTasks = strtoul(buffer + strlen("procs_running"), NULL, 10);
+         ProcessList* pl = (ProcessList*) super->processTable;
+         pl->runningTasks = strtoul(buffer + strlen("procs_running"), NULL, 10);
          break;
       }
    }

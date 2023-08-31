@@ -25,6 +25,7 @@ in the source distribution for its full text.
 #include "CRT.h"
 #include "DynamicColumn.h"
 #include "DynamicMeter.h"
+#include "DynamicScreen.h"
 #include "Hashtable.h"
 #include "Header.h"
 #include "IncSet.h"
@@ -303,11 +304,11 @@ static void CommandLine_delay(Machine* host, unsigned long millisec) {
 }
 
 static void setCommFilter(State* state, char** commFilter) {
-   ProcessList* pl = state->host->pl;
+   Table* table = state->host->activeTable;
    IncSet* inc = state->mainPanel->inc;
 
    IncSet_setFilter(inc, *commFilter);
-   pl->incFilter = IncSet_filter(inc);
+   table->incFilter = IncSet_filter(inc);
 
    free(*commFilter);
    *commFilter = NULL;
@@ -334,20 +335,15 @@ int CommandLine_run(int argc, char** argv) {
    if (!Platform_init())
       return 1;
 
-   Process_setupColumnWidths();
-
    UsersTable* ut = UsersTable_new();
    Hashtable* dm = DynamicMeters_new();
    Hashtable* dc = DynamicColumns_new();
-   if (!dc)
-      dc = Hashtable_new(0, true);
+   Hashtable* ds = DynamicScreens_new();
 
    Machine* host = Machine_new(ut, flags.userId);
    ProcessList* pl = ProcessList_new(host, flags.pidMatchList);
-   Settings* settings = Settings_new(host->activeCPUs, dm, dc);
-
-   host->settings = settings;
-   Machine_addList(host, pl);
+   Settings* settings = Settings_new(host->activeCPUs, dm, dc, ds);
+   Machine_populateTablesFromSettings(host, settings, &pl->super);
 
    Header* header = Header_new(host, 2);
    Header_populateFromSettings(header);
@@ -379,7 +375,7 @@ int CommandLine_run(int argc, char** argv) {
    CRT_init(settings, flags.allowUnicode, flags.iterationsRemaining != -1);
 
    MainPanel* panel = MainPanel_new();
-   ProcessList_setPanel(pl, (Panel*) panel);
+   Machine_setTablesPanel(host, (Panel*) panel);
 
    MainPanel_updateLabels(panel, settings->ss->treeView, flags.commFilter);
 
@@ -400,13 +396,13 @@ int CommandLine_run(int argc, char** argv) {
    ScreenManager_add(scr, (Panel*) panel, -1);
 
    Machine_scan(host);
-   ProcessList_scan(pl);
+   Machine_scanTables(host);
    CommandLine_delay(host, 75);
    Machine_scan(host);
-   ProcessList_scan(pl);
+   Machine_scanTables(host);
 
    if (settings->ss->allBranchesCollapsed)
-      ProcessList_collapseAllBranches(pl);
+      Table_collapseAllBranches(&pl->super);
 
    ScreenManager_run(scr, NULL, NULL, NULL);
 
@@ -421,7 +417,6 @@ int CommandLine_run(int argc, char** argv) {
    }
 
    Header_delete(header);
-   ProcessList_delete(pl);
    Machine_delete(host);
 
    ScreenManager_delete(scr);
@@ -438,6 +433,7 @@ int CommandLine_run(int argc, char** argv) {
    Settings_delete(settings);
    DynamicColumns_delete(dc);
    DynamicMeters_delete(dm);
+   DynamicScreens_delete(ds);
 
    return 0;
 }
