@@ -86,7 +86,7 @@ void Meter_delete(Object* cast) {
    if (Meter_doneFn(this)) {
       Meter_done(this);
    }
-   free(this->drawData);
+   free(this->drawData.values);
    free(this->caption);
    free(this->values);
    free(this);
@@ -121,8 +121,9 @@ void Meter_setMode(Meter* this, int modeIndex) {
       }
    } else {
       assert(modeIndex >= 1);
-      free(this->drawData);
-      this->drawData = NULL;
+      free(this->drawData.values);
+      this->drawData.values = NULL;
+      this->drawData.nValues = 0;
 
       const MeterMode* mode = Meter_modes[modeIndex];
       this->draw = mode->draw;
@@ -289,12 +290,17 @@ static const char* const GraphMeterMode_dotsAscii[] = {
 
 static void GraphMeterMode_draw(Meter* this, int x, int y, int w) {
    const Machine* host = this->host;
+   GraphData* data = &this->drawData;
 
-   if (!this->drawData) {
-      this->drawData = xCalloc(1, sizeof(GraphData));
+   assert(w > 0);
+   if ((size_t)w * 2 > data->nValues) {
+      size_t oldNValues = data->nValues;
+      data->nValues = MAXIMUM(oldNValues + (oldNValues / 2), (size_t)w * 2);
+      data->values = xReallocArray(data->values, data->nValues, sizeof(*data->values));
+      memmove(data->values + (data->nValues - oldNValues), data->values, oldNValues * sizeof(*data->values));
+      memset(data->values, 0, (data->nValues - oldNValues) * sizeof(*data->values));
    }
-   GraphData* data = this->drawData;
-   const int nValues = METER_GRAPHDATA_SIZE;
+   const size_t nValues = data->nValues;
 
    const char* const* GraphMeterMode_dots;
    int GraphMeterMode_pixPerRow;
@@ -321,18 +327,20 @@ static void GraphMeterMode_draw(Meter* this, int x, int y, int w) {
       struct timeval delay = { .tv_sec = globalDelay / 10, .tv_usec = (globalDelay % 10) * 100000L };
       timeradd(&host->realtime, &delay, &(data->time));
 
-      for (int i = 0; i < nValues - 1; i++)
+      for (size_t i = 0; i < nValues - 1; i++)
          data->values[i] = data->values[i + 1];
 
       data->values[nValues - 1] = sumPositiveValues(this->values, this->curItems);
    }
 
-   int i = nValues - (w * 2), k = 0;
+   assert(nValues <= SSIZE_MAX);
+   ssize_t i = (ssize_t)nValues - (w * 2);
+   ssize_t k = 0;
    if (i < 0) {
       k = -i / 2;
       i = 0;
    }
-   for (; i < nValues - 1; i += 2, k++) {
+   for (; i < (ssize_t)nValues - 1; i += 2, k++) {
       int pix = GraphMeterMode_pixPerRow * GRAPH_HEIGHT;
       if (this->total < 1)
          this->total = 1;
