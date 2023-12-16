@@ -606,6 +606,9 @@ static void LinuxProcessTable_readMaps(LinuxProcess* process, openat_arg_t procF
       if (' ' != *readptr++)
          continue;
 
+      if (!readptr[0] || !readptr[1] || !readptr[2] || !readptr[3])
+         continue;
+
       map_execute = (readptr[2] == 'x');
       readptr += 4;
       if (' ' != *readptr++)
@@ -698,6 +701,8 @@ static bool LinuxProcessTable_readStatmFile(LinuxProcess* process, openat_arg_t 
    if (r == 7) {
       process->super.m_virt *= host->pageSizeKB;
       process->super.m_resident *= host->pageSizeKB;
+
+      process->m_priv = process->super.m_resident - (process->m_share * host->pageSizeKB);
    }
 
    return r == 7;
@@ -842,6 +847,10 @@ static void LinuxProcessTable_readCGroupFile(LinuxProcess* process, openat_arg_t
          free(process->cgroup_short);
          process->cgroup_short = NULL;
       }
+      if (process->container_short) {
+         free(process->container_short);
+         process->container_short = NULL;
+      }
       return;
    }
    char output[PROC_LINE_LENGTH + 1];
@@ -887,6 +896,11 @@ static void LinuxProcessTable_readCGroupFile(LinuxProcess* process, openat_arg_t
          //CCGROUP is alias to normal CGROUP if shortening fails
          Row_updateFieldWidth(CCGROUP, strlen(process->cgroup));
       }
+      if (process->container_short) {
+         Row_updateFieldWidth(CONTAINER, strlen(process->container_short));
+      } else {
+         Row_updateFieldWidth(CONTAINER, strlen("N/A"));
+      }
       return;
    }
 
@@ -900,6 +914,18 @@ static void LinuxProcessTable_readCGroupFile(LinuxProcess* process, openat_arg_t
       Row_updateFieldWidth(CCGROUP, strlen(process->cgroup));
       free(process->cgroup_short);
       process->cgroup_short = NULL;
+   }
+
+   char* container_short = CGroup_filterContainer(process->cgroup);
+   if (container_short) {
+      Row_updateFieldWidth(CONTAINER, strlen(container_short));
+      free_and_xStrdup(&process->container_short, container_short);
+      free(container_short);
+   } else {
+      //CONTAINER is just "N/A" if shortening fails
+      Row_updateFieldWidth(CONTAINER, strlen("N/A"));
+      free(process->container_short);
+      process->container_short = NULL;
    }
 }
 

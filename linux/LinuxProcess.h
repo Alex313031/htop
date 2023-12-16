@@ -41,6 +41,7 @@ typedef struct LinuxProcess_ {
    unsigned long long int cutime;
    unsigned long long int cstime;
    long m_share;
+   long m_priv;
    long m_pss;
    long m_swap;
    long m_psswp;
@@ -90,6 +91,7 @@ typedef struct LinuxProcess_ {
    #endif
    char* cgroup;
    char* cgroup_short;
+   char* container_short;
    unsigned int oom;
    #ifdef HAVE_DELAYACCT
    unsigned long long int delay_read_time;

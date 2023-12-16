@@ -51,6 +51,7 @@ const ProcessFieldData Process_fields[LAST_PROCESSFIELD] = {
    [M_VIRT] = { .name = "M_VIRT", .title = " VIRT ", .description = "Total program size in virtual memory", .flags = 0, .defaultSortDesc = true, },
    [M_RESIDENT] = { .name = "M_RESIDENT", .title = "  RES ", .description = "Resident set size, size of the text and data sections, plus stack usage", .flags = 0, .defaultSortDesc = true, },
    [M_SHARE] = { .name = "M_SHARE", .title = "  SHR ", .description = "Size of the process's shared pages", .flags = 0, .defaultSortDesc = true, },
+   [M_PRIV] = { .name = "M_PRIV", .title = " PRIV ", .description = "The private memory size of the process - resident set size minus shared memory", .flags = 0, .defaultSortDesc = true, },
    [M_TRS] = { .name = "M_TRS", .title = " CODE ", .description = "Size of the .text segment of the process (CODE)", .flags = 0, .defaultSortDesc = true, },
    [M_DRS] = { .name = "M_DRS", .title = " DATA ", .description = "Size of the .data segment plus stack usage of the process (DATA)", .flags = 0, .defaultSortDesc = true, },
    [M_LRS] = { .name = "M_LRS", .title = "  LIB ", .description = "The library size of the process (calculated from memory maps)", .flags = PROCESS_FLAG_LINUX_LRS_FIX, .defaultSortDesc = true, },
@@ -81,6 +82,7 @@ const ProcessFieldData Process_fields[LAST_PROCESSFIELD] = {
    [IO_RATE] = { .name = "IO_RATE", .title = "   DISK R/W ", .description = "Total I/O rate in bytes per second", .flags = PROCESS_FLAG_IO, .defaultSortDesc = true, },
    [CGROUP] = { .name = "CGROUP", .title = "CGROUP (raw)", .description = "Which cgroup the process is in", .flags = PROCESS_FLAG_LINUX_CGROUP, .autoWidth = true, },
    [CCGROUP] = { .name = "CCGROUP", .title = "CGROUP (compressed)", .description = "Which cgroup the process is in (condensed to essentials)", .flags = PROCESS_FLAG_LINUX_CGROUP, .autoWidth = true, },
+   [CONTAINER] = { .name = "CONTAINER", .title = "CONTAINER", .description = "Name of the container the process is in (guessed by heuristics)", .flags = PROCESS_FLAG_LINUX_CGROUP, .autoWidth = true, },
    [OOM] = { .name = "OOM", .title = " OOM ", .description = "OOM (Out-of-Memory) killer score", .flags = PROCESS_FLAG_LINUX_OOM, .defaultSortDesc = true, },
    [IO_PRIORITY] = { .name = "IO_PRIORITY", .title = "IO ", .description = "I/O priority", .flags = PROCESS_FLAG_LINUX_IOPRIO, },
 #ifdef HAVE_DELAYACCT
@@ -113,6 +115,7 @@ Process* LinuxProcess_new(const Machine* host) {
 void Process_delete(Object* cast) {
    LinuxProcess* this = (LinuxProcess*) cast;
    Process_done((Process*)cast);
+   free(this->container_short);
    free(this->cgroup_short);
    free(this->cgroup);
 #ifdef HAVE_OPENVZ
@@ -243,6 +246,7 @@ static void LinuxProcess_rowWriteField(const Row* super, RichString* str, Proces
       break;
    case M_TRS: Row_printBytes(str, lp->m_trs * lhost->pageSize, coloring); return;
    case M_SHARE: Row_printBytes(str, lp->m_share * lhost->pageSize, coloring); return;
+   case M_PRIV: Row_printKBytes(str, lp->m_priv, coloring); return;
    case M_PSS: Row_printKBytes(str, lp->m_pss, coloring); return;
    case M_SWAP: Row_printKBytes(str, lp->m_swap, coloring); return;
    case M_PSSWP: Row_printKBytes(str, lp->m_psswp, coloring); return;
@@ -269,6 +273,7 @@ static void LinuxProcess_rowWriteField(const Row* super, RichString* str, Proces
    #endif
    case CGROUP: xSnprintf(buffer, n, "%-*.*s ", Row_fieldWidths[CGROUP], Row_fieldWidths[CGROUP], lp->cgroup ? lp->cgroup : "N/A"); break;
    case CCGROUP: xSnprintf(buffer, n, "%-*.*s ", Row_fieldWidths[CCGROUP], Row_fieldWidths[CCGROUP], lp->cgroup_short ? lp->cgroup_short : (lp->cgroup ? lp->cgroup : "N/A")); break;
+   case CONTAINER: xSnprintf(buffer, n, "%-*.*s ", Row_fieldWidths[CONTAINER], Row_fieldWidths[CONTAINER], lp->container_short ? lp->container_short : "N/A"); break;
    case OOM: xSnprintf(buffer, n, "%4u ", lp->oom); break;
    case IO_PRIORITY: {
       int klass = IOPriority_class(lp->ioPriority);
@@ -339,6 +344,8 @@ static int LinuxProcess_compareByKey(const Process* v1, const Process* v2, Proce
       return SPACESHIP_NUMBER(p1->m_trs, p2->m_trs);
    case M_SHARE:
       return SPACESHIP_NUMBER(p1->m_share, p2->m_share);
+   case M_PRIV:
+      return SPACESHIP_NUMBER(p1->m_priv, p2->m_priv);
    case M_PSS:
       return SPACESHIP_NUMBER(p1->m_pss, p2->m_pss);
    case M_SWAP:
@@ -387,6 +394,8 @@ static int LinuxProcess_compareByKey(const Process* v1, const Process* v2, Proce
       return SPACESHIP_NULLSTR(p1->cgroup, p2->cgroup);
    case CCGROUP:
       return SPACESHIP_NULLSTR(p1->cgroup_short, p2->cgroup_short);
+   case CONTAINER:
+      return SPACESHIP_NULLSTR(p1->container_short, p2->container_short);
    case OOM:
       return SPACESHIP_NUMBER(p1->oom, p2->oom);
    #ifdef HAVE_DELAYACCT

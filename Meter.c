@@ -51,32 +51,40 @@ Meter* Meter_new(const Machine* host, unsigned int param, const MeterClass* type
    return this;
 }
 
-int Meter_humanUnit(char* buffer, unsigned long int value, size_t size) {
-   const char* prefix = "KMGTPEZY";
-   unsigned long int powi = 1;
-   unsigned int powj = 1, precision = 2;
+/* Converts 'value' in kibibytes into a human readable string.
+   Example output strings: "0K", "1023K", "98.7M" and "1.23G" */
+int Meter_humanUnit(char* buffer, double value, size_t size) {
+   size_t i = 0;
 
-   for (;;) {
-      if (value / 1024 < powi)
+   assert(value >= 0.0);
+   while (value >= ONE_K) {
+      if (i >= ARRAYSIZE(unitPrefixes) - 1) {
+         if (value > 9999.0) {
+            return xSnprintf(buffer, size, "inf");
+         }
          break;
+      }
 
-      if (prefix[1] == '\0')
-         break;
-
-      powi *= 1024;
-      ++prefix;
+      value /= ONE_K;
+      ++i;
    }
 
-   if (*prefix == 'K')
-      precision = 0;
+   int precision = 0;
 
-   for (; precision > 0; precision--) {
-      powj *= 10;
-      if (value / powi < powj)
-         break;
+   if (i > 0) {
+      // Fraction digits for mebibytes and above
+      precision = value <= 99.9 ? (value <= 9.99 ? 2 : 1) : 0;
+
+      // Round up if 'value' is in range (99.9, 100) or (9.99, 10)
+      if (precision < 2) {
+         double limit = precision == 1 ? 10.0 : 100.0;
+         if (value < limit) {
+            value = limit;
+         }
+      }
    }
 
-   return snprintf(buffer, size, "%.*f%c", precision, (double) value / powi, *prefix);
+   return xSnprintf(buffer, size, "%.*f%c", precision, value, unitPrefixes[i]);
 }
 
 void Meter_delete(Object* cast) {
@@ -226,8 +234,7 @@ static void BarMeterMode_draw(Meter* this, int x, int y, int w) {
    int offset = 0;
    for (uint8_t i = 0; i < this->curItems; i++) {
       double value = this->values[i];
-      if (isPositive(value)) {
-         assert(this->total > 0.0);
+      if (isPositive(value) && this->total > 0.0) {
          value = MINIMUM(value, this->total);
          blockSizes[i] = ceil((value / this->total) * w);
       } else {
@@ -239,6 +246,7 @@ static void BarMeterMode_draw(Meter* this, int x, int y, int w) {
       for (int j = offset; j < nextOffset; j++)
          if (RichString_getCharVal(bar, startPos + j) == ' ') {
             if (CRT_colorScheme == COLORSCHEME_MONOCHROME) {
+               assert(i < strlen(BarMeterMode_characters));
                RichString_setChar(&bar, startPos + j, BarMeterMode_characters[i]);
             } else {
                RichString_setChar(&bar, startPos + j, '|');
@@ -318,8 +326,7 @@ static void GraphMeterMode_draw(Meter* this, int x, int y, int w) {
       struct timeval delay = { .tv_sec = globalDelay / 10, .tv_usec = (globalDelay % 10) * 100000L };
       timeradd(&host->realtime, &delay, &(data->time));
 
-      for (size_t i = 0; i < nValues - 1; i++)
-         data->values[i] = data->values[i + 1];
+      memmove(&data->values[0], &data->values[1], (nValues - 1) * sizeof(*data->values));
 
       data->values[nValues - 1] = sumPositiveValues(this->values, this->curItems);
    }
@@ -348,10 +355,9 @@ static void GraphMeterMode_draw(Meter* this, int x, int y, int w) {
    size_t i = nValues - (size_t)w * 2;
    for (int col = 0; i < nValues - 1; i += 2, col++) {
       int pix = GraphMeterMode_pixPerRow * GRAPH_HEIGHT;
-      if (this->total < 1)
-         this->total = 1;
-      int v1 = CLAMP((int) lround(data->values[i] / this->total * pix), 1, pix);
-      int v2 = CLAMP((int) lround(data->values[i + 1] / this->total * pix), 1, pix);
+      double total = MAXIMUM(this->total, 1);
+      int v1 = CLAMP((int) lround(data->values[i] / total * pix), 1, pix);
+      int v2 = CLAMP((int) lround(data->values[i + 1] / total * pix), 1, pix);
 
       int colorIdx = GRAPH_1;
       for (int line = 0; line < GRAPH_HEIGHT; line++) {
