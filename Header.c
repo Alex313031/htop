@@ -5,6 +5,8 @@ Released under the GNU GPLv2+, see the COPYING file
 in the source distribution for its full text.
 */
 
+#include "config.h" // IWYU pragma: keep
+
 #include "Header.h"
 
 #include <assert.h>
@@ -22,6 +24,7 @@ in the source distribution for its full text.
 #include "Object.h"
 #include "Platform.h"
 #include "ProvideCurses.h"
+#include "Settings.h"
 #include "XUtils.h"
 
 

@@ -6,20 +6,21 @@ Released under the GNU GPLv2+, see the COPYING file
 in the source distribution for its full text.
 */
 
+#include "config.h" // IWYU pragma: keep
+
 #include "Table.h"
 
 #include <assert.h>
+#include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "CRT.h"
-#include "DynamicColumn.h"
 #include "Hashtable.h"
 #include "Machine.h"
 #include "Macros.h"
-#include "Platform.h"
+#include "Panel.h"
+#include "RowField.h"
 #include "Vector.h"
-#include "XUtils.h"
 
 
 Table* Table_init(Table* this, const ObjectClass* klass, Machine* host) {
@@ -137,7 +138,7 @@ static void Table_buildTreeBranch(Table* this, int rowid, unsigned int level, in
 }
 
 static int compareRowByKnownParentThenNatural(const void* v1, const void* v2) {
-    return Row_compareByParent((const Row*) v1, (const Row*) v2);
+   return Row_compareByParent((const Row*) v1, (const Row*) v2);
 }
 
 // Builds a sorted tree from scratch, without relying on previously gathered information
@@ -263,7 +264,7 @@ void Table_rebuildPanel(Table* this) {
          foundFollowed = true;
          Panel_setSelected(this->panel, idx);
          /* Keep scroll position relative to followed row */
-         this->panel->scrollV = idx - (currPos-currScrollV);
+         this->panel->scrollV = idx - (currPos - currScrollV);
       }
       idx++;
    }

@@ -6,6 +6,7 @@ Released under the GNU GPLv2+, see the COPYING file
 in the source distribution for its full text.
 */
 
+#include "config.h" // IWYU pragma: keep
 
 #include "solaris/SolarisMachine.h"
 
@@ -300,7 +301,7 @@ void Machine_scan(Machine* super) {
 
 Machine* Machine_new(UsersTable* usersTable, uid_t userId) {
    SolarisMachine* this = xCalloc(1, sizeof(SolarisMachine));
-   Machine *super = &this->super;
+   Machine* super = &this->super;
 
    Machine_init(super, usersTable, userId);
 

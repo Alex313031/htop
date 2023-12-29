@@ -60,6 +60,9 @@ esac
 # Enable extensions, required by hwloc scripts
 AC_USE_SYSTEM_EXTENSIONS
 
+# Activate some more of the missing global defines
+AC_SYS_LARGEFILE
+
 # ----------------------------------------------------------------------
 
 
@@ -71,6 +74,7 @@ AC_PROG_CC
 AM_PROG_CC_C_O
 m4_version_prereq([2.70], [], [AC_PROG_CC_C99])
 AS_IF([test "x$ac_cv_prog_cc_c99" = xno], [AC_MSG_ERROR([htop is written in C99. A newer compiler is required.])])
+AM_CFLAGS="-std=c99 -pedantic"
 
 # ----------------------------------------------------------------------
 
@@ -167,7 +171,12 @@ fi
 # Checks for typedefs, structures, and compiler characteristics.
 # ----------------------------------------------------------------------
 
+AC_TYPE_MBSTATE_T
+AC_TYPE_MODE_T
+AC_TYPE_OFF_T
 AC_TYPE_PID_T
+AC_TYPE_SIZE_T
+AC_TYPE_SSIZE_T
 AC_TYPE_UID_T
 AC_TYPE_UINT8_T
 AC_TYPE_UINT16_T
@@ -242,7 +251,7 @@ AC_LINK_IFELSE([
 #endif
          ]])],
          AC_MSG_RESULT([assume yes (cross compiling)]),
-	 flag_finite_math_only=yes)
+         flag_finite_math_only=yes)
    elif ./conftest$EXEEXT >&AS_MESSAGE_LOG_FD; then
       flag_finite_math_only=no
       AC_MSG_RESULT(yes)
@@ -349,15 +358,15 @@ m4_define([HTOP_CHECK_SCRIPT],
       htop_config_script_cflags=$([$4] --cflags 2> /dev/null)
    fi
    htop_script_success=no
-   htop_save_CFLAGS="$CFLAGS"
+   htop_save_CFLAGS="$AM_CFLAGS"
    if test ! "x$htop_config_script_libs" = x; then
-      CFLAGS="$htop_config_script_cflags $CFLAGS"
+      AM_CFLAGS="$AM_CFLAGS $htop_config_script_cflags"
       AC_CHECK_LIB([$1], [$2], [
          AC_DEFINE([$3], 1, [The library is present.])
          LIBS="$htop_config_script_libs $LIBS "
          htop_script_success=yes
       ], [
-         CFLAGS="$htop_save_CFLAGS"
+         AM_CFLAGS="$htop_save_CFLAGS"
       ], [
          $htop_config_script_libs
       ])
@@ -503,7 +512,7 @@ case "$enable_unwind" in
    yes)
       AC_CHECK_LIB([unwind], [backtrace], [], [AC_MSG_ERROR([can not find required library libunwind])])
       AC_CHECK_HEADERS([libunwind.h], [], [
-         CFLAGS="$CFLAGS -I/usr/include/libunwind"
+         AM_CFLAGS="$AM_CFLAGS -I/usr/include/libunwind"
          AC_CHECK_HEADERS([libunwind/libunwind.h], [], [AC_MSG_ERROR([can not find required header file libunwind.h])])
       ])
       ;;
@@ -529,7 +538,7 @@ case "$enable_hwloc" in
       m4_ifdef([PKG_PROG_PKG_CONFIG], [
          PKG_PROG_PKG_CONFIG()
          PKG_CHECK_MODULES(HWLOC, hwloc, [
-               CFLAGS="$CFLAGS $HWLOC_CFLAGS"
+               AM_CFLAGS="$AM_CFLAGS $HWLOC_CFLAGS"
                LIBS="$LIBS $HWLOC_LIBS"
                AC_DEFINE([HAVE_LIBHWLOC], [1], [Define to 1 if you have the 'hwloc' library (-lhwloc).])
             ], [
@@ -654,7 +663,7 @@ case "$enable_delayacct" in
             PKG_CHECK_MODULES(LIBNL3, libnl-3.0, [], [enable_delayacct=no])
             PKG_CHECK_MODULES(LIBNL3GENL, libnl-genl-3.0, [], [enable_delayacct=no])
             if test "$enable_delayacct" = yes; then
-               CFLAGS="$CFLAGS $LIBNL3_CFLAGS $LIBNL3GENL_CFLAGS"
+               AM_CFLAGS="$AM_CFLAGS $LIBNL3_CFLAGS $LIBNL3GENL_CFLAGS"
                LIBS="$LIBS $LIBNL3_LIBS $LIBNL3GENL_LIBS"
                AC_DEFINE([HAVE_DELAYACCT], [1], [Define if delay accounting support should be enabled.])
             fi
@@ -669,7 +678,7 @@ case "$enable_delayacct" in
          PKG_PROG_PKG_CONFIG()
          PKG_CHECK_MODULES(LIBNL3, libnl-3.0, [], [AC_MSG_ERROR([can not find required library libnl3])])
          PKG_CHECK_MODULES(LIBNL3GENL, libnl-genl-3.0, [], [AC_MSG_ERROR([can not find required library libnl3genl])])
-         CFLAGS="$CFLAGS $LIBNL3_CFLAGS $LIBNL3GENL_CFLAGS"
+         AM_CFLAGS="$AM_CFLAGS $LIBNL3_CFLAGS $LIBNL3GENL_CFLAGS"
          LIBS="$LIBS $LIBNL3_LIBS $LIBNL3GENL_LIBS"
          AC_DEFINE([HAVE_DELAYACCT], [1], [Define if delay accounting support should be enabled.])
       ], [
@@ -720,7 +729,7 @@ fi
 # Checks for compiler warnings.
 # ----------------------------------------------------------------------
 
-AM_CFLAGS="\
+AM_CFLAGS="$AM_CFLAGS\
  -Wall\
  -Wcast-align\
  -Wcast-qual\

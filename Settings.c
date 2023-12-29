@@ -5,6 +5,8 @@ Released under the GNU GPLv2+, see the COPYING file
 in the source distribution for its full text.
 */
 
+#include "config.h" // IWYU pragma: keep
+
 #include "Settings.h"
 
 #include <ctype.h>
@@ -23,6 +25,8 @@ in the source distribution for its full text.
 #include "Macros.h"
 #include "Meter.h"
 #include "Platform.h"
+#include "Process.h"
+#include "Table.h"
 #include "XUtils.h"
 
 
@@ -282,7 +286,7 @@ static void ScreenSettings_readFields(ScreenSettings* ss, Hashtable* columns, co
    String_freeArray(ids);
 }
 
-static ScreenSettings* Settings_initScreenSettings(ScreenSettings* ss, Settings* this, const char *columns) {
+static ScreenSettings* Settings_initScreenSettings(ScreenSettings* ss, Settings* this, const char* columns) {
    ScreenSettings_readFields(ss, this->dynamicColumns, columns);
    this->screens[this->nScreens] = ss;
    this->nScreens++;
@@ -603,7 +607,7 @@ static void writeMeterModes(const Settings* this, FILE* fd, char separator, unsi
 int Settings_write(const Settings* this, bool onCrash) {
    FILE* fd;
    char separator;
-   char *tmpFilename = NULL;
+   char* tmpFilename = NULL;
    if (onCrash) {
       fd = stderr;
       separator = ';';

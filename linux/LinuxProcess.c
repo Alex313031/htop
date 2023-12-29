@@ -6,9 +6,13 @@ Released under the GNU GPLv2+, see the COPYING file
 in the source distribution for its full text.
 */
 
+#include "config.h" // IWYU pragma: keep
+
 #include "linux/LinuxProcess.h"
 
+#include <assert.h>
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <syscall.h>
@@ -19,7 +23,9 @@ in the source distribution for its full text.
 #include "Process.h"
 #include "ProvideCurses.h"
 #include "RichString.h"
+#include "RowField.h"
 #include "Scheduling.h"
+#include "Settings.h"
 #include "XUtils.h"
 #include "linux/IOPriority.h"
 #include "linux/LinuxMachine.h"
@@ -224,13 +230,15 @@ static double LinuxProcess_totalIORate(const LinuxProcess* lp) {
 
 static void LinuxProcess_rowWriteField(const Row* super, RichString* str, ProcessField field) {
    const Process* this = (const Process*) super;
+   const LinuxProcess* lp = (const LinuxProcess*) super;
    const Machine* host = (const Machine*) super->host;
-   const LinuxMachine* lhost = (const LinuxMachine*) host;
-   const LinuxProcess* lp = (const LinuxProcess*) this;
+   const LinuxMachine* lhost = (const LinuxMachine*) super->host;
+
    bool coloring = host->settings->highlightMegabytes;
    char buffer[256]; buffer[255] = '\0';
    int attr = CRT_colors[DEFAULT_COLOR];
    size_t n = sizeof(buffer) - 1;
+
    switch (field) {
    case CMINFLT: Row_printCount(str, lp->cminflt, coloring); return;
    case CMAJFLT: Row_printCount(str, lp->cmajflt, coloring); return;
@@ -317,8 +325,8 @@ static void LinuxProcess_rowWriteField(const Row* super, RichString* str, Proces
       if (lp->autogroup_id != -1) {
          xSnprintf(buffer, n, "%3d ", lp->autogroup_nice);
          attr = lp->autogroup_nice < 0 ? CRT_colors[PROCESS_HIGH_PRIORITY]
-              : lp->autogroup_nice > 0 ? CRT_colors[PROCESS_LOW_PRIORITY]
-              : CRT_colors[PROCESS_SHADOW];
+            : lp->autogroup_nice > 0 ? CRT_colors[PROCESS_LOW_PRIORITY]
+            : CRT_colors[PROCESS_SHADOW];
       } else {
          attr = CRT_colors[PROCESS_SHADOW];
          xSnprintf(buffer, n, "N/A ");
@@ -328,6 +336,7 @@ static void LinuxProcess_rowWriteField(const Row* super, RichString* str, Proces
       Process_writeField(this, str, field);
       return;
    }
+
    RichString_appendAscii(str, attr, buffer);
 }
 

@@ -5,18 +5,19 @@ Released under the GNU GPLv2+, see the COPYING file
 in the source distribution for its full text.
 */
 
+#include "config.h" // IWYU pragma: keep
+
 #include "DiskIOMeter.h"
 
 #include <stdbool.h>
-#include <stdio.h>
 
 #include "CRT.h"
+#include "Machine.h"
 #include "Macros.h"
-#include "Meter.h"
 #include "Object.h"
 #include "Platform.h"
-#include "ProcessTable.h"
 #include "RichString.h"
+#include "Row.h"
 #include "XUtils.h"
 
 
@@ -115,24 +116,23 @@ static void DiskIOMeter_updateValues(Meter* this) {
 
 static void DiskIOMeter_display(ATTR_UNUSED const Object* cast, RichString* out) {
    switch (status) {
-   case RATESTATUS_NODATA:
-      RichString_writeAscii(out, CRT_colors[METER_VALUE_ERROR], "no data");
-      return;
-   case RATESTATUS_INIT:
-      RichString_writeAscii(out, CRT_colors[METER_VALUE], "initializing...");
-      return;
-   case RATESTATUS_STALE:
-      RichString_writeAscii(out, CRT_colors[METER_VALUE_WARN], "stale data");
-      return;
-   case RATESTATUS_DATA:
-      break;
+      case RATESTATUS_NODATA:
+         RichString_writeAscii(out, CRT_colors[METER_VALUE_ERROR], "no data");
+         return;
+      case RATESTATUS_INIT:
+         RichString_writeAscii(out, CRT_colors[METER_VALUE], "initializing...");
+         return;
+      case RATESTATUS_STALE:
+         RichString_writeAscii(out, CRT_colors[METER_VALUE_WARN], "stale data");
+         return;
+      case RATESTATUS_DATA:
+         break;
    }
 
    char buffer[16];
-   int len;
 
    int color = cached_utilisation_diff > 40.0 ? METER_VALUE_NOTICE : METER_VALUE;
-   len = xSnprintf(buffer, sizeof(buffer), "%.1f%%", cached_utilisation_diff);
+   int len = xSnprintf(buffer, sizeof(buffer), "%.1f%%", cached_utilisation_diff);
    RichString_appendnAscii(out, CRT_colors[color], buffer, len);
 
    RichString_appendAscii(out, CRT_colors[METER_TEXT], " read: ");
