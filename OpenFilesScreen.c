@@ -27,13 +27,17 @@ in the source distribution for its full text.
 #include "XUtils.h"
 
 
+// cf. getIndexForType; must be larger than the maximum value returned.
+#define LSOF_DATACOL_COUNT 8
+
 typedef struct OpenFiles_Data_ {
-   char* data[8];
+   char* data[LSOF_DATACOL_COUNT];
 } OpenFiles_Data;
 
 typedef struct OpenFiles_ProcessData_ {
    OpenFiles_Data data;
    int error;
+   int cols[LSOF_DATACOL_COUNT];
    struct OpenFiles_FileData_* files;
 } OpenFiles_ProcessData;
 
@@ -92,6 +96,9 @@ static void OpenFilesScreen_draw(InfoScreen* this) {
 
 static OpenFiles_ProcessData* OpenFilesScreen_getProcessData(pid_t pid) {
    OpenFiles_ProcessData* pdata = xCalloc(1, sizeof(OpenFiles_ProcessData));
+   pdata->cols[getIndexForType('s')] = 8;
+   pdata->cols[getIndexForType('o')] = 8;
+   pdata->cols[getIndexForType('i')] = 8;
 
    int fdpair[2] = {0, 0};
    if (pipe(fdpair) == -1) {
@@ -164,6 +171,10 @@ static OpenFiles_ProcessData* OpenFilesScreen_getProcessData(pid_t pid) {
          {
             size_t index = getIndexForType(cmd);
             free_and_xStrdup(&item->data[index], line + 1);
+            size_t dlen = strlen(item->data[index]);
+            if (dlen > (size_t)pdata->cols[index]) {
+               pdata->cols[index] = (int)CLAMP(dlen, 0, INT16_MAX);
+            }
             break;
          }
          case 'o':  /* file's offset */
@@ -173,6 +184,10 @@ static OpenFiles_ProcessData* OpenFilesScreen_getProcessData(pid_t pid) {
                free_and_xStrdup(&item->data[index], line + 3);
             } else {
                free_and_xStrdup(&item->data[index], line + 1);
+            }
+            size_t dlen = strlen(item->data[index]);
+            if (dlen > (size_t)pdata->cols[index]) {
+               pdata->cols[index] = (int)CLAMP(dlen, 0, INT16_MAX);
             }
             break;
          }
@@ -239,30 +254,43 @@ static void OpenFiles_Data_clear(OpenFiles_Data* data) {
       free(data->data[i]);
 }
 
-static void OpenFilesScreen_scan(InfoScreen* this) {
-   Panel* panel = this->display;
+static void OpenFilesScreen_scan(InfoScreen* super) {
+   Panel* panel = super->display;
    int idx = Panel_getSelectedIndex(panel);
    Panel_prune(panel);
-   OpenFiles_ProcessData* pdata = OpenFilesScreen_getProcessData(((OpenFilesScreen*)this)->pid);
+   OpenFiles_ProcessData* pdata = OpenFilesScreen_getProcessData(((OpenFilesScreen*)super)->pid);
    if (pdata->error == 127) {
-      InfoScreen_addLine(this, "Could not execute 'lsof'. Please make sure it is available in your $PATH.");
+      InfoScreen_addLine(super, "Could not execute 'lsof'. Please make sure it is available in your $PATH.");
    } else if (pdata->error == 1) {
-      InfoScreen_addLine(this, "Failed listing open files.");
+      InfoScreen_addLine(super, "Failed listing open files.");
    } else {
+      char hdrbuf[128] = {0};
+      snprintf(hdrbuf, sizeof(hdrbuf), "%5.5s %-7.7s %-4.4s %6.6s %*s %*s %*s  %s",
+         "FD", "TYPE", "MODE", "DEVICE",
+         pdata->cols[getIndexForType('s')], "SIZE",
+         pdata->cols[getIndexForType('o')], "OFFSET",
+         pdata->cols[getIndexForType('i')], "NODE",
+         "NAME"
+      );
+      Panel_setHeader(panel, hdrbuf);
+
       OpenFiles_FileData* fdata = pdata->files;
       while (fdata) {
          OpenFiles_Data* data = &fdata->data;
          char* entry = NULL;
-         xAsprintf(&entry, "%5.5s %-7.7s %-4.4s %-10.10s %10.10s %10.10s %10.10s  %s",
+         xAsprintf(&entry, "%5.5s %-7.7s %-4.4s %6.6s %*s %*s %*s  %s",
                    getDataForType(data, 'f'),
                    getDataForType(data, 't'),
                    getDataForType(data, 'a'),
                    getDataForType(data, 'D'),
+                   pdata->cols[getIndexForType('s')],
                    getDataForType(data, 's'),
+                   pdata->cols[getIndexForType('o')],
                    getDataForType(data, 'o'),
+                   pdata->cols[getIndexForType('i')],
                    getDataForType(data, 'i'),
                    getDataForType(data, 'n'));
-         InfoScreen_addLine(this, entry);
+         InfoScreen_addLine(super, entry);
          free(entry);
          OpenFiles_Data_clear(data);
          OpenFiles_FileData* old = fdata;
@@ -272,7 +300,7 @@ static void OpenFilesScreen_scan(InfoScreen* this) {
       OpenFiles_Data_clear(&pdata->data);
    }
    free(pdata);
-   Vector_insertionSort(this->lines);
+   Vector_insertionSort(super->lines);
    Vector_insertionSort(panel->items);
    Panel_setSelected(panel, idx);
 }
