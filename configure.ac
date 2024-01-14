@@ -6,7 +6,7 @@
 # ----------------------------------------------------------------------
 
 AC_PREREQ([2.69])
-AC_INIT([htop], [3.3.0-dev], [htop@groups.io], [], [https://htop.dev/])
+AC_INIT([htop], [3.4.0-dev], [htop@groups.io], [], [https://htop.dev/])
 
 AC_CONFIG_SRCDIR([htop.c])
 AC_CONFIG_AUX_DIR([build-aux])
@@ -336,7 +336,7 @@ if test "$my_htop_platform" = pcp; then
 fi
 
 if test "$my_htop_platform" = linux && test "x$enable_static" = xyes; then
-   AC_CHECK_LIB([systemd], [sd_bus_open_system])
+   AC_CHECK_LIB([systemd], [sd_bus_open_system], [], [], [-lcap])
 fi
 
 # ----------------------------------------------------------------------
