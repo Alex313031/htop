@@ -35,7 +35,9 @@ printf "${YEL}Running \`make clean\` and \`make distclean\`...\n" &&
 printf "${CYA}\n" &&
 
 # Clean artifacts
-make clean && make distclean &&
+make clean
+make distclean
+rm -f -v ./clean &&
 
 printf "\n" &&
 printf "${GRE}${bold}Done.\n" &&
