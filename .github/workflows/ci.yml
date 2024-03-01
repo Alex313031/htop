@@ -197,6 +197,119 @@ jobs:
     - name: Distcheck
       run: make distcheck DISTCHECK_CONFIGURE_FLAGS="--enable-werror"
 
+  build-dragonflybsd-latest-gcc:
+      runs-on: ubuntu-22.04
+      timeout-minutes: 20
+      steps:
+        - uses: actions/checkout@v4
+          with:
+            submodules: recursive
+        - name: Compile
+          uses: vmactions/dragonflybsd-vm@v1
+          with:
+            release: '6.4.0'
+            usesh: true
+            prepare: |
+              pkg install -y gmake autoconf-2.71 automake ncurses git
+              git config --global --add safe.directory /home/runner/work/htop/htop
+            run: |
+              set -e
+              export LDFLAGS="-L/usr/local/lib"
+              export CFLAGS="-I/usr/local/include"
+              ./autogen.sh
+              ./configure --enable-unicode --enable-werror
+              gmake -k
+
+  build-freebsd-latest-clang:
+      runs-on: ubuntu-22.04
+      timeout-minutes: 20
+      steps:
+        - uses: actions/checkout@v4
+          with:
+            submodules: recursive
+        - name: Compile
+          uses: vmactions/freebsd-vm@v1
+          with:
+            release: '14.0'
+            usesh: true
+            prepare: |
+              pkg install -y gmake autoconf-2.71 automake git
+              git config --global --add safe.directory /home/runner/work/htop/htop
+            run: |
+              set -e
+              ./autogen.sh
+              ./configure --enable-unicode --enable-werror
+              gmake -k
+
+  build-netbsd-latest-gcc:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Compile
+        uses: vmactions/netbsd-vm@v1
+        with:
+          release: '9.3'
+          usesh: true
+          prepare: |
+            PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
+            PKG_PATH="https://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/amd64/9.3/All/"
+            export PATH PKG_PATH
+            /usr/sbin/pkg_add pkgin
+            pkgin -y install autoconf automake libtool ncurses ncursesw gmake git
+            git config --global --add safe.directory /home/runner/work/htop/htop
+          run: |
+            set -e
+            ./autogen.sh
+            CPPFLAGS="-I/usr/pkg/include" ./configure --enable-unicode --enable-werror
+            gmake -k
+
+  build-openbsd-latest-gcc:
+      runs-on: ubuntu-22.04
+      timeout-minutes: 20
+      steps:
+        - uses: actions/checkout@v4
+          with:
+            submodules: recursive
+        - name: Compile
+          uses: vmactions/openbsd-vm@v1
+          with:
+            release: '7.4'
+            usesh: true
+            prepare: |
+              pkg_add gmake autoconf-2.71 automake-1.16.5 git
+              git config --global --add safe.directory /home/runner/work/htop/htop
+            run: |
+              set -e
+              export AUTOCONF_VERSION=2.71
+              export AUTOMAKE_VERSION=1.16
+              ./autogen.sh
+              ./configure --enable-unicode --enable-werror
+              gmake -k
+
+  build-solaris-latest-gcc:
+      runs-on: ubuntu-22.04
+      timeout-minutes: 20
+      steps:
+        - uses: actions/checkout@v4
+          with:
+            submodules: recursive
+        - name: Compile
+          uses: vmactions/solaris-vm@v1
+          with:
+            release: '11.4'
+            usesh: true
+            prepare: |
+              pkg install gnu-make autoconf automake ncurses git gcc
+              git config --global --add safe.directory /home/runner/work/htop/htop
+            run: |
+              set -e
+              ./autogen.sh
+              ./configure --enable-unicode --enable-werror
+              gmake -k
+
   whitespace_check:
     runs-on: ubuntu-latest
     steps:
