@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2023 Alex313031.
+# Copyright (c) 2024 Alex313031.
 
 YEL='\033[1;33m' # Yellow
 CYA='\033[1;96m' # Cyan
@@ -35,13 +35,6 @@ printf "${YEL}Running \`make clean\` and \`make distclean\`...\n" &&
 printf "${CYA}\n" &&
 
 # Clean artifacts
-export NINJA_SUMMARIZE_BUILD=1 &&
-
-export CFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -mavx -maes" &&
-export CXXFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -mavx -maes" &&
-export CPPFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -mavx -maes" &&
-export LDFLAGS="-Wl,-O3 -mavx -maes" &&
-
 make clean && make distclean &&
 
 printf "\n" &&
@@ -59,7 +52,6 @@ printf "${YEL}Building htop (Debug Version)...\n" &&
 printf "${CYA}\n" &&
 
 # Build debug htop
-export NINJA_SUMMARIZE_BUILD=1 &&
 
 ./autogen.sh &&
 
@@ -81,8 +73,7 @@ printf "\n" &&
 printf "${YEL}Building htop (SSE4.1 Version)...\n" &&
 printf "${CYA}\n" &&
 
-# Build htop
-export NINJA_SUMMARIZE_BUILD=1 &&
+# Build htop without AVX
 
 export CFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -msse4.1 -flto=auto" &&
 export CXXFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -msse4.1 -flto=auto" &&
@@ -109,7 +100,6 @@ printf "${YEL}Building htop...\n" &&
 printf "${CYA}\n" &&
 
 # Build htop
-export NINJA_SUMMARIZE_BUILD=1 &&
 
 export CFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -mavx -maes -flto=auto" &&
 export CXXFLAGS="-D_DEFAULT_SOURCE -D_XOPEN_SOURCE=600 -DNDEBUG -g0 -s -O3 -mavx -maes -flto=auto" &&
@@ -125,6 +115,4 @@ make VERBOSE=1 V=1 &&
 printf "\n" &&
 printf "${GRE}${bold}Build Completed. ${YEL}${bold}You can now run \`sudo make install\` or \`make install\` to install it.\n" &&
 printf "\n" &&
-tput sgr0 &&
-
-exit 0
+tput sgr0
