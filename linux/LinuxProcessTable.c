@@ -71,11 +71,11 @@ static FILE* fopenat(openat_arg_t openatArg, const char* pathname, const char* m
    if (fd < 0)
       return NULL;
 
-   FILE* stream = fdopen(fd, mode);
-   if (!stream)
+   FILE* fp = fdopen(fd, mode);
+   if (!fp)
       close(fd);
 
-   return stream;
+   return fp;
 }
 
 static inline uint64_t fast_strtoull_dec(char** str, int maxlen) {
@@ -139,23 +139,39 @@ static void LinuxProcessTable_initTtyDrivers(LinuxProcessTable* this) {
    if (r < 0)
       return;
 
-   int numDrivers = 0;
-   int allocd = 10;
+   size_t numDrivers = 0;
+   size_t allocd = 10;
    ttyDrivers = xMallocArray(allocd, sizeof(TtyDriver));
    char* at = buf;
-   while (*at != '\0') {
+   char* path = NULL;
+   while (at && *at != '\0') {
+      /*
+       * Format:
+       * [name]  [node path]  [major]  [minor range]  [type]
+       * serial  /dev/ttyS    4        64-95          serial
+       */
+
       at = strchr(at, ' ');    // skip first token
+      if (!at)
+         goto finish;          // bail out on truncation
       while (*at == ' ') at++; // skip spaces
+
       const char* token = at;  // mark beginning of path
       at = strchr(at, ' ');    // find end of path
+      if (!at)
+         goto finish;          // bail out on truncation
       *at = '\0'; at++;        // clear and skip
-      ttyDrivers[numDrivers].path = xStrdup(token); // save
+      path = xStrdup(token);   // save
       while (*at == ' ') at++; // skip spaces
+
       token = at;              // mark beginning of major
       at = strchr(at, ' ');    // find end of major
+      if (!at)
+         goto finish;          // bail out on truncation
       *at = '\0'; at++;        // clear and skip
       ttyDrivers[numDrivers].major = atoi(token); // save
       while (*at == ' ') at++; // skip spaces
+
       token = at;              // mark beginning of minorFrom
       while (*at >= '0' && *at <= '9') at++; //find end of minorFrom
       if (*at == '-') {        // if has range
@@ -163,6 +179,8 @@ static void LinuxProcessTable_initTtyDrivers(LinuxProcessTable* this) {
          ttyDrivers[numDrivers].minorFrom = atoi(token); // save
          token = at;              // mark beginning of minorTo
          at = strchr(at, ' ');    // find end of minorTo
+         if (!at)
+            goto finish;          // bail out on truncation
          *at = '\0'; at++;        // clear and skip
          ttyDrivers[numDrivers].minorTo = atoi(token); // save
       } else {                 // no range
@@ -170,18 +188,24 @@ static void LinuxProcessTable_initTtyDrivers(LinuxProcessTable* this) {
          ttyDrivers[numDrivers].minorFrom = atoi(token); // save
          ttyDrivers[numDrivers].minorTo = atoi(token); // save
       }
+
       at = strchr(at, '\n');   // go to end of line
-      at++;                    // skip
+      if (at)
+         at++;                 // skip
+      ttyDrivers[numDrivers].path = path;
+      path = NULL;
       numDrivers++;
       if (numDrivers == allocd) {
          allocd += 10;
          ttyDrivers = xReallocArray(ttyDrivers, allocd, sizeof(TtyDriver));
       }
    }
-   numDrivers++;
-   ttyDrivers = xRealloc(ttyDrivers, sizeof(TtyDriver) * numDrivers);
-   ttyDrivers[numDrivers - 1].path = NULL;
-   qsort(ttyDrivers, numDrivers - 1, sizeof(TtyDriver), sortTtyDrivers);
+finish:
+   free(path);
+
+   ttyDrivers = xRealloc(ttyDrivers, sizeof(TtyDriver) * (numDrivers + 1));
+   ttyDrivers[numDrivers].path = NULL;
+   qsort(ttyDrivers, numDrivers, sizeof(TtyDriver), sortTtyDrivers);
    this->ttyDrivers = ttyDrivers;
 }
 
@@ -466,18 +490,18 @@ static bool LinuxProcessTable_updateUser(const Machine* host, Process* process, 
       return true;
    }
 
-   struct stat sstat;
+   struct stat sb;
 #ifdef HAVE_OPENAT
-   int statok = fstat(procFd, &sstat);
+   int statok = fstat(procFd, &sb);
 #else
-   int statok = stat(procFd, &sstat);
+   int statok = stat(procFd, &sb);
 #endif
    if (statok == -1)
       return false;
 
-   if (process->st_uid != sstat.st_uid) {
-      process->st_uid = sstat.st_uid;
-      process->user = UsersTable_getRef(host->usersTable, sstat.st_uid);
+   if (process->st_uid != sb.st_uid) {
+      process->st_uid = sb.st_uid;
+      process->user = UsersTable_getRef(host->usersTable, sb.st_uid);
    }
 
    return true;
@@ -731,8 +755,8 @@ static bool LinuxProcessTable_readStatmFile(LinuxProcess* process, openat_arg_t 
 static bool LinuxProcessTable_readSmapsFile(LinuxProcess* process, openat_arg_t procFd, bool haveSmapsRollup) {
    //http://elixir.free-electrons.com/linux/v4.10/source/fs/proc/task_mmu.c#L719
    //kernel will return data in chunks of size PAGE_SIZE or less.
-   FILE* f = fopenat(procFd, haveSmapsRollup ? "smaps_rollup" : "smaps", "r");
-   if (!f)
+   FILE* fp = fopenat(procFd, haveSmapsRollup ? "smaps_rollup" : "smaps", "r");
+   if (!fp)
       return false;
 
    process->m_pss   = 0;
@@ -740,10 +764,10 @@ static bool LinuxProcessTable_readSmapsFile(LinuxProcess* process, openat_arg_t 
    process->m_psswp = 0;
 
    char buffer[256];
-   while (fgets(buffer, sizeof(buffer), f)) {
+   while (fgets(buffer, sizeof(buffer), fp)) {
       if (!strchr(buffer, '\n')) {
          // Partial line, skip to end of this line
-         while (fgets(buffer, sizeof(buffer), f)) {
+         while (fgets(buffer, sizeof(buffer), fp)) {
             if (strchr(buffer, '\n')) {
                break;
             }
@@ -760,7 +784,7 @@ static bool LinuxProcessTable_readSmapsFile(LinuxProcess* process, openat_arg_t 
       }
    }
 
-   fclose(f);
+   fclose(fp);
    return true;
 }
 
@@ -1325,19 +1349,19 @@ static char* LinuxProcessTable_updateTtyDevice(TtyDriver* ttyDrivers, unsigned l
          continue;
       }
       unsigned int idx = min - ttyDrivers[i].minorFrom;
-      struct stat sstat;
+      struct stat sb;
       char* fullPath;
       for (;;) {
          xAsprintf(&fullPath, "%s/%d", ttyDrivers[i].path, idx);
-         int err = stat(fullPath, &sstat);
-         if (err == 0 && major(sstat.st_rdev) == maj && minor(sstat.st_rdev) == min) {
+         int err = stat(fullPath, &sb);
+         if (err == 0 && major(sb.st_rdev) == maj && minor(sb.st_rdev) == min) {
             return fullPath;
          }
          free(fullPath);
 
          xAsprintf(&fullPath, "%s%d", ttyDrivers[i].path, idx);
-         err = stat(fullPath, &sstat);
-         if (err == 0 && major(sstat.st_rdev) == maj && minor(sstat.st_rdev) == min) {
+         err = stat(fullPath, &sb);
+         if (err == 0 && major(sb.st_rdev) == maj && minor(sb.st_rdev) == min) {
             return fullPath;
          }
          free(fullPath);
@@ -1348,8 +1372,8 @@ static char* LinuxProcessTable_updateTtyDevice(TtyDriver* ttyDrivers, unsigned l
 
          idx = min;
       }
-      int err = stat(ttyDrivers[i].path, &sstat);
-      if (err == 0 && tty_nr == sstat.st_rdev) {
+      int err = stat(ttyDrivers[i].path, &sb);
+      if (err == 0 && tty_nr == sb.st_rdev) {
          return xStrdup(ttyDrivers[i].path);
       }
    }
