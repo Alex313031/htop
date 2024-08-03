@@ -235,6 +235,21 @@ AC_COMPILE_IFELSE([
    AC_MSG_RESULT(no))
 CFLAGS="$old_CFLAGS"
 
+AC_MSG_CHECKING(for returns_nonnull)
+old_CFLAGS="$CFLAGS"
+CFLAGS="$CFLAGS -Wno-error -Werror=attributes"
+AC_COMPILE_IFELSE([
+   AC_LANG_SOURCE(
+      [[
+         /* Attribute supported in GCC 4.9 or later */
+         __attribute__((returns_nonnull)) void* foo(void);
+      ]]
+   )],
+   AC_DEFINE([HAVE_ATTR_RETNONNULL], 1, [The returns_nonnull attribute is supported.])
+   AC_MSG_RESULT(yes),
+   AC_MSG_RESULT(no))
+CFLAGS="$old_CFLAGS"
+
 AC_MSG_CHECKING(for NaN support)
 dnl Note: AC_RUN_IFELSE does not try compiling the program at all when
 dnl $cross_compiling is 'yes'.
@@ -583,6 +598,19 @@ if test -n "$with_os_release" && test ! -f "$with_os_release"; then
    fi
 fi
 AC_DEFINE_UNQUOTED([OSRELEASEFILE], ["$with_os_release"], [File with OS release details.])
+
+AC_ARG_WITH([config],
+            [AS_HELP_STRING([--with-config=DIR],
+			    [configuration path @<:@default=/.config@:>@])],
+            [],
+            [with_config="/.config"])
+dnl Performance Co-Pilot configuration location to prevent overwrite
+if test "$my_htop_platform" = pcp -a "$with_config" = /.config; then
+    with_config="/.pcp"
+elif test -z "$with_config"; then
+   AC_MSG_ERROR([bad empty value for --with-config option])
+fi
+AC_DEFINE_UNQUOTED([CONFIGDIR], ["$with_config"], [Configuration path.])
 
 # ----------------------------------------------------------------------
 
