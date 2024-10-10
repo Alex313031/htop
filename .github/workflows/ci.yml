@@ -233,7 +233,7 @@ jobs:
             release: '14.1'
             usesh: true
             prepare: |
-              pkg install -y gmake autoconf automake git
+              pkg install -y gmake autoconf automake pkgconf git
               git config --global --add safe.directory /home/runner/work/htop/htop
             run: |
               set -e
@@ -263,7 +263,7 @@ jobs:
             run: |
               set -e
               ./autogen.sh
-              CPPFLAGS=$(pkg-config --cflags ncurses) LDFLAGS=$(pkg-config --libs ncurses) ./configure --enable-unicode --enable-werror
+              ./configure --enable-unicode --enable-werror
               gmake -k
 
   build-openbsd-latest-clang:
