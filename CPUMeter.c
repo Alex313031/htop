@@ -208,8 +208,7 @@ static void CPUMeter_display(const Object* cast, RichString* out) {
 }
 
 static void AllCPUsMeter_getRange(const Meter* this, int* start, int* count) {
-   const CPUMeterData* data = this->meterData;
-   unsigned int cpus = data->cpus;
+   unsigned int cpus = this->host->existingCPUs;
    switch (Meter_name(this)[0]) {
       default:
       case 'A': // All
@@ -222,7 +221,7 @@ static void AllCPUsMeter_getRange(const Meter* this, int* start, int* count) {
          break;
       case 'R': // Second Half
          *start = (cpus + 1) / 2;
-         *count = cpus / 2;
+         *count = cpus - *start;
          break;
    }
 }
@@ -237,16 +236,17 @@ static void AllCPUsMeter_updateValues(Meter* this) {
 }
 
 static void CPUMeterCommonInit(Meter* this) {
-   unsigned int cpus = this->host->existingCPUs;
+   int start, count;
+   AllCPUsMeter_getRange(this, &start, &count);
+
    CPUMeterData* data = this->meterData;
    if (!data) {
       data = this->meterData = xMalloc(sizeof(CPUMeterData));
-      data->cpus = cpus;
-      data->meters = xCalloc(cpus, sizeof(Meter*));
+      data->cpus = this->host->existingCPUs;
+      data->meters = count ? xCalloc(count, sizeof(Meter*)) : NULL;
    }
+
    Meter** meters = data->meters;
-   int start, count;
-   AllCPUsMeter_getRange(this, &start, &count);
    for (int i = 0; i < count; i++) {
       if (!meters[i])
          meters[i] = Meter_new(this->host, start + i + 1, (const MeterClass*) Class(CPUMeter));
@@ -261,6 +261,10 @@ static void CPUMeterCommonUpdateMode(Meter* this, MeterModeId mode, int ncol) {
    this->mode = mode;
    int start, count;
    AllCPUsMeter_getRange(this, &start, &count);
+   if (!count) {
+      this->h = 1;
+      return;
+   }
    for (int i = 0; i < count; i++) {
       Meter_setMode(meters[i], mode);
    }
@@ -301,8 +305,8 @@ static void CPUMeterCommonDraw(Meter* this, int x, int y, int w, int ncol) {
    Meter** meters = data->meters;
    int start, count;
    AllCPUsMeter_getRange(this, &start, &count);
-   int colwidth = (w - ncol) / ncol + 1;
-   int diff = (w - (colwidth * ncol));
+   int colwidth = w / ncol;
+   int diff = w % ncol;
    int nrows = (count + ncol - 1) / ncol;
    for (int i = 0; i < count; i++) {
       int d = (i / nrows) > diff ? diff : (i / nrows); // dynamic spacer

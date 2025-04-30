@@ -149,6 +149,15 @@ static int tempDriverPriority(const sensors_chip_name* chip) {
       { "bigcore2_thermal",   0 },
       /* Rockchip RK3566 */
       { "soc_thermal",        0 },
+      /* Snapdragon 8cx */
+      { "cpu0_thermal",       0 },
+      { "cpu1_thermal",       0 },
+      { "cpu2_thermal",       0 },
+      { "cpu3_thermal",       0 },
+      { "cpu4_thermal",       0 },
+      { "cpu5_thermal",       0 },
+      { "cpu6_thermal",       0 },
+      { "cpu7_thermal",       0 },
       /* Low priority drivers */
       { "acpitz",             1 },
    };
@@ -226,7 +235,7 @@ void LibSensors_getCPUTemperatures(CPUData* cpus, unsigned int existingCPUs, uns
 
       topPriority = priority;
 
-      int physicalID = -1;
+      int physicalID = 0;
 
       int m = 0;
       for (const sensors_feature* feature = sym_sensors_get_features(chip, &m); feature; feature = sym_sensors_get_features(chip, &m)) {
@@ -252,13 +261,20 @@ void LibSensors_getCPUTemperatures(CPUData* cpus, unsigned int existingCPUs, uns
          if (r != 0)
             continue;
 
-         /* Map temperature values to Rockchip cores
-          *
-          *   littlecore -> cores 1..4
-          *   bigcore0   -> cores 5,6
-          *   bigcore1   -> cores 7,8
-          */
          if (existingCPUs == 8) {
+            /* Map temperature values to Snapdragon 8cx cores */
+            if (String_startsWith(chip->prefix, "cpu") && chip->prefix[3] >= '0' && chip->prefix[3] <= '7' && String_eq(chip->prefix + 4, "_thermal")) {
+               data[1 + chip->prefix[3] - '0'] = temp;
+               coreTempCount++;
+               continue;
+            }
+
+            /* Map temperature values to Rockchip cores
+             *
+             *   littlecore -> cores 1..4
+             *   bigcore0   -> cores 5,6
+             *   bigcore1   -> cores 7,8
+             */
             if (String_eq(chip->prefix, "littlecore_thermal")) {
                data[1] = temp;
                data[2] = temp;
@@ -296,7 +312,7 @@ void LibSensors_getCPUTemperatures(CPUData* cpus, unsigned int existingCPUs, uns
          char *label = sym_sensors_get_label(chip, feature);
          if (label) {
             bool skip = true;
-            /* Intel coretemp names, labels mention package and phyiscal id */
+            /* Intel coretemp names, labels mention package and physical id */
             if (String_startsWith(label, "Package id ")) {
                physicalID = strtoul(label + strlen("Package id "), NULL, 10);
             } else if (String_startsWith(label, "Physical id ")) {

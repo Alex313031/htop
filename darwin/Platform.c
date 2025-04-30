@@ -148,15 +148,11 @@ const MeterClass* const Platform_meterTypes[] = {
    NULL
 };
 
-static double Platform_nanosecondsPerMachTick = 1.0;
-
 static double Platform_nanosecondsPerSchedulerTick = -1;
 
-static bool iokit_available = false;
 static mach_port_t iokit_port; // the mach port used to initiate communication with IOKit
 
 bool Platform_init(void) {
-   Platform_nanosecondsPerMachTick = Platform_calculateNanosecondsPerMachTick();
 
    // Determine the number of scheduler clock ticks per second
    errno = 0;
@@ -169,24 +165,7 @@ bool Platform_init(void) {
    const double nanos_per_sec = 1e9;
    Platform_nanosecondsPerSchedulerTick = nanos_per_sec / scheduler_ticks_per_sec;
 
-   // Since macOS 12.0, IOMasterPort is deprecated, and one should use IOMainPort instead
-   #if defined(HAVE_DECL_IOMAINPORT) && HAVE_DECL_IOMAINPORT
-   if (!IOMainPort(bootstrap_port, &iokit_port)) {
-      iokit_available = true;
-   }
-   #elif defined(HAVE_DECL_IOMASTERPORT) && HAVE_DECL_IOMASTERPORT
-   if (!IOMasterPort(bootstrap_port, &iokit_port)) {
-      iokit_available = true;
-   }
-   #endif
-
    return true;
-}
-
-// Converts ticks in the Mach "timebase" to nanoseconds.
-// See `mach_timebase_info`, as used to define the `Platform_nanosecondsPerMachTick` constant.
-uint64_t Platform_machTicksToNanoseconds(uint64_t mach_ticks) {
-   return (uint64_t) ((double) mach_ticks * Platform_nanosecondsPerMachTick);
 }
 
 // Converts "scheduler ticks" to nanoseconds.
@@ -410,8 +389,6 @@ void Platform_getFileDescriptors(double* used, double* max) {
 }
 
 bool Platform_getDiskIO(DiskIOData* data) {
-   if (!iokit_available)
-      return false;
 
    io_iterator_t drive_list;
 

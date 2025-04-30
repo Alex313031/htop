@@ -7,7 +7,7 @@
 
 m4_define([htop_git_version],
   m4_normalize(m4_esyscmd([git describe --abbrev=7 --dirty --always --tags 2> /dev/null || echo ''])))
-m4_define([htop_release_version], [3.4.0-dev])
+m4_define([htop_release_version], [3.5.0-dev])
 
 # ----------------------------------------------------------------------
 # Autoconf initialization.
@@ -186,6 +186,25 @@ AC_CHECK_HEADERS([execinfo.h])
 
 if test "$my_htop_platform" = darwin; then
    AC_CHECK_HEADERS([mach/mach_time.h])
+   AC_CHECK_HEADERS([mach/thread_info.h])
+
+   AC_MSG_CHECKING(for thread_extended_info_data_t)
+   AC_COMPILE_IFELSE(
+      AC_LANG_PROGRAM(
+         [#include <mach/thread_info.h>],
+         [
+            thread_extended_info_data_t teid;
+            (void)teid;
+         ]
+      ),
+      [
+         AC_DEFINE([HAVE_THREAD_EXTENDED_INFO_DATA_T], 1, [Define if thread_extended_info_data_t is available from <mach/thread_info.h>])
+         AC_MSG_RESULT(yes)
+      ],
+      [
+         AC_MSG_RESULT(no)
+      ]
+   )
 fi
 
 # ----------------------------------------------------------------------
@@ -371,14 +390,29 @@ AC_CHECK_FUNCS([ \
     readlinkat \
     sched_getscheduler \
     sched_setscheduler \
-    strchrnul \
    ])
 
-if test "$my_htop_platform" = darwin; then
-   AC_CHECK_FUNCS([mach_timebase_info])
-   AC_CHECK_DECLS([IOMainPort], [], [], [[#include <IOKit/IOKitLib.h>]])
-   AC_CHECK_DECLS([IOMasterPort], [], [], [[#include <IOKit/IOKitLib.h>]])
+# strchrnul is available in macOS since 15.4, but the user may specify an older
+# macOS version ('-mmacos-version-min') to build for. We need to ensure it is
+# actually exposed in the header.
+htop_save_CFLAGS=$CFLAGS
+CFLAGS="$CFLAGS -Werror"
 
+AC_MSG_CHECKING([for strchrnul])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <string.h>
+   ]], [[
+static char ch;
+char* ptr = strchrnul(&ch, 0);
+return ptr != &ch; /* Should be 0 (exit success) */
+   ]])],
+   [AC_MSG_RESULT(yes)
+   AC_DEFINE([HAVE_STRCHRNUL], [1], [Define to 1 if you have the 'strchrnul' function.])],
+   [AC_MSG_RESULT(no)])
+
+CFLAGS=$htop_save_CFLAGS
+
+if test "$my_htop_platform" = darwin; then
    AC_CHECK_FUNCS([host_statistics64], [
       AC_CHECK_TYPES([struct vm_statistics64], [], [], [[#include <mach/vm_statistics.h>]])
    ], [])
@@ -818,6 +852,55 @@ esac
 if test "x$enable_unwind" = xno; then
    # Fall back to backtrace(3) and add -lexecinfo if needed
    AC_SEARCH_LIBS([backtrace], [execinfo])
+
+   AC_MSG_CHECKING([the return type of backtrace])
+   AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
+#ifndef BACKTRACE_RETURN_TYPE
+#error "BACKTRACE_RETURN_TYPE not defined"
+#endif
+      ]])],
+      [AC_MSG_RESULT([user defined])],
+      [htop_save_CFLAGS=$CFLAGS
+      CFLAGS="$AM_CFLAGS $CFLAGS -Werror"
+
+      # Use 'typeof' if supported. Otherwise guess types from larger bit width
+      # to smaller.
+      # 'size_t' is used in FreeBSD, NetBSD and OpenBSD.
+      # 'int' is used in Linux (with glibc) and macOS.
+      # See also: Gnulib documentation of 'backtrace'
+      # (https://www.gnu.org/software/gnulib/manual/html_node/backtrace.html).
+      # GCC (< 15) had a bug that warns on a non-null pointer in 'typeof'.
+      # Workaround by passing an address of 1 instead.
+      for backtrace_return_type in \
+         "typeof(backtrace((void**)1, 0))" \
+         "__typeof__(backtrace((void**)1, 0))" \
+         "__typeof(backtrace((void**)1, 0))" \
+         size_t \
+         int \
+      ; do
+         AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <execinfo.h>
+#include <stddef.h> /* For size_t */
+         ]],[[
+#define BACKTRACE_RETURN_TYPE $backtrace_return_type
+/* Assuming the second argument of backtrace_symbols() would use the same type
+   as the return type of backtrace(). */
+static char** (*func)(void* const*, BACKTRACE_RETURN_TYPE) = backtrace_symbols;
+static void* addr;
+BACKTRACE_RETURN_TYPE nptrs = backtrace(&addr, 1);
+(void)nptrs;
+         ]])],
+         [AC_DEFINE_UNQUOTED([BACKTRACE_RETURN_TYPE], [$backtrace_return_type], [Defined to the return type of the 'backtrace' function.])
+         break],
+         [backtrace_return_type=""])
+      done
+      backtrace_return_type_msg=`echo "x$backtrace_return_type" | sed '
+         s/^x *//
+         s/^$/not available/
+         s/^\(_*typeof_*\) *( *backtrace( *( *void *\* *\* *) *1 *, *0 *) *) *$/automatic (using \1)/'`
+      AC_MSG_RESULT([$backtrace_return_type_msg])
+
+      CFLAGS=$htop_save_CFLAGS])
 fi
 
 
@@ -1141,7 +1224,7 @@ fi
 AC_MSG_RESULT([
   ${PACKAGE_NAME} ${VERSION}
 
-  platform:                  $my_htop_platform
+  platform:                  $my_htop_platform ($host_os)
   os-release file:           $with_os_release
   (Linux) proc directory:    $with_proc
   (Linux) openvz:            $enable_openvz

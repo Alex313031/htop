@@ -36,7 +36,7 @@ void MainPanel_updateLabels(MainPanel* this, bool list, bool filter) {
 }
 
 static void MainPanel_idSearch(MainPanel* this, int ch) {
-   Panel* super = (Panel*) this;
+   Panel* super = &this->super;
    pid_t id = ch - 48 + this->idSearch;
    for (int i = 0; i < Panel_size(super); i++) {
       const Row* row = (const Row*) Panel_get(super, i);
@@ -117,6 +117,8 @@ static HandlerResult MainPanel_eventHandler(Panel* super, int ch) {
       result = HANDLED;
    } else if (0 < ch && ch < 255 && isdigit((unsigned char)ch)) {
       MainPanel_idSearch(this, ch);
+   } else if (ch == KEY_LEFT || ch == KEY_RIGHT) {
+      reaction |= HTOP_KEEP_FOLLOWING;
    } else {
       if (ch != ERR) {
          this->idSearch = 0;
@@ -159,7 +161,7 @@ int MainPanel_selectedRow(MainPanel* this) {
 }
 
 bool MainPanel_foreachRow(MainPanel* this, MainPanel_foreachRowFn fn, Arg arg, bool* wasAnyTagged) {
-   Panel* super = (Panel*) this;
+   Panel* super = &this->super;
    bool ok = true;
    bool anyTagged = false;
    for (int i = 0; i < Panel_size(super); i++) {
@@ -236,12 +238,11 @@ void MainPanel_setFunctionBar(MainPanel* this, bool readonly) {
 }
 
 void MainPanel_delete(Object* object) {
-   Panel* super = (Panel*) object;
    MainPanel* this = (MainPanel*) object;
    MainPanel_setFunctionBar(this, false);
    FunctionBar_delete(this->readonlyBar);
-   Panel_done(super);
    IncSet_delete(this->inc);
    free(this->keys);
+   Panel_done(&this->super);
    free(this);
 }
