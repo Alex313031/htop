@@ -118,10 +118,14 @@ static bool Settings_validateMeters(Settings* this) {
 }
 
 static void Settings_defaultMeters(Settings* this, const Machine* host) {
+   // Whether to use Alex313031 custom config
+   const bool custom_config = true;
+
    unsigned int initialCpuCount = host->activeCPUs;
+
    size_t sizes[] = { 3, 3 };
 
-   if (initialCpuCount > 4 && initialCpuCount <= 128) {
+   if (initialCpuCount > 4 && initialCpuCount <= 128 && !custom_config) {
       sizes[1]++;
    }
 
@@ -129,6 +133,16 @@ static void Settings_defaultMeters(Settings* this, const Machine* host) {
    Settings_deleteColumns(this);
 
    this->hLayout = HF_TWO_50_50;
+
+   // Make sure we are using 50/50 layout, then
+   // change column sizes for custom headers below
+   if (custom_config && this->hLayout == HF_TWO_50_50) {
+     const size_t left_col = 4;
+     const size_t right_col = 11;
+     sizes[0] = left_col;
+     sizes[1] = right_col;
+   }
+
    this->hColumns = xCalloc(HeaderLayout_getColumns(this->hLayout), sizeof(MeterColumnSetting));
    for (size_t i = 0; i < 2; i++) {
       this->hColumns[i].names = xCalloc(sizes[i] + 1, sizeof(*this->hColumns[0].names));
@@ -138,44 +152,82 @@ static void Settings_defaultMeters(Settings* this, const Machine* host) {
 
    int r = 0;
 
-   if (initialCpuCount > 128) {
-      // Just show the average, ricers need to config for impressive screenshots
-      this->hColumns[0].names[0] = xStrdup("CPU");
+   // Use Alex313031 custom config
+   if (custom_config) {
+      // Default left side colums
+      this->hColumns[0].names[0] = xStrdup("AllCPUs2");
       this->hColumns[0].modes[0] = BAR_METERMODE;
-   } else if (initialCpuCount > 32) {
-      this->hColumns[0].names[0] = xStrdup("LeftCPUs8");
-      this->hColumns[0].modes[0] = BAR_METERMODE;
-      this->hColumns[1].names[r] = xStrdup("RightCPUs8");
-      this->hColumns[1].modes[r++] = BAR_METERMODE;
-   } else if (initialCpuCount > 16) {
-      this->hColumns[0].names[0] = xStrdup("LeftCPUs4");
-      this->hColumns[0].modes[0] = BAR_METERMODE;
-      this->hColumns[1].names[r] = xStrdup("RightCPUs4");
-      this->hColumns[1].modes[r++] = BAR_METERMODE;
-   } else if (initialCpuCount > 8) {
-      this->hColumns[0].names[0] = xStrdup("LeftCPUs2");
-      this->hColumns[0].modes[0] = BAR_METERMODE;
-      this->hColumns[1].names[r] = xStrdup("RightCPUs2");
-      this->hColumns[1].modes[r++] = BAR_METERMODE;
-   } else if (initialCpuCount > 4) {
-      this->hColumns[0].names[0] = xStrdup("LeftCPUs");
-      this->hColumns[0].modes[0] = BAR_METERMODE;
-      this->hColumns[1].names[r] = xStrdup("RightCPUs");
-      this->hColumns[1].modes[r++] = BAR_METERMODE;
+      this->hColumns[0].names[1] = xStrdup("CPU");
+      this->hColumns[0].modes[1] = BAR_METERMODE;
+      this->hColumns[0].names[2] = xStrdup("Memory");
+      this->hColumns[0].modes[2] = BAR_METERMODE;
+      this->hColumns[0].names[3] = xStrdup("Swap");
+      this->hColumns[0].modes[3] = BAR_METERMODE;
+      // Default right side columns
+      this->hColumns[1].names[0] = xStrdup("Hostname");
+      this->hColumns[1].modes[0] = TEXT_METERMODE;
+      this->hColumns[1].names[1] = xStrdup("System");
+      this->hColumns[1].modes[1] = TEXT_METERMODE;
+      this->hColumns[1].names[2] = xStrdup("Tasks");
+      this->hColumns[1].modes[2] = TEXT_METERMODE;
+      this->hColumns[1].names[3] = xStrdup("LoadAverage");
+      this->hColumns[1].modes[3] = TEXT_METERMODE;
+      this->hColumns[1].names[4] = xStrdup("Uptime");
+      this->hColumns[1].modes[4] = TEXT_METERMODE;
+      this->hColumns[1].names[5] = xStrdup("FileDescriptors");
+      this->hColumns[1].modes[5] = TEXT_METERMODE;
+      this->hColumns[1].names[6] = xStrdup("Systemd");
+      this->hColumns[1].modes[6] = TEXT_METERMODE;
+      this->hColumns[1].names[7] = xStrdup("SystemdUser");
+      this->hColumns[1].modes[7] = TEXT_METERMODE;
+      this->hColumns[1].names[8] = xStrdup("PressureStallCPUSome");
+      this->hColumns[1].modes[8] = TEXT_METERMODE;
+      this->hColumns[1].names[9] = xStrdup("PressureStallIOFull");
+      this->hColumns[1].modes[9] = TEXT_METERMODE;
+      this->hColumns[1].names[10] = xStrdup("GPU");
+      this->hColumns[1].modes[10] = BAR_METERMODE;
    } else {
-      this->hColumns[0].names[0] = xStrdup("AllCPUs");
-      this->hColumns[0].modes[0] = BAR_METERMODE;
+     if (initialCpuCount > 128) {
+        // Just show the average, ricers need to config for impressive screenshots
+        this->hColumns[0].names[0] = xStrdup("CPU");
+        this->hColumns[0].modes[0] = BAR_METERMODE;
+     } else if (initialCpuCount > 32) {
+        this->hColumns[0].names[0] = xStrdup("LeftCPUs8");
+        this->hColumns[0].modes[0] = BAR_METERMODE;
+        this->hColumns[1].names[r] = xStrdup("RightCPUs8");
+        this->hColumns[1].modes[r++] = BAR_METERMODE;
+     } else if (initialCpuCount > 16) {
+        this->hColumns[0].names[0] = xStrdup("LeftCPUs4");
+        this->hColumns[0].modes[0] = BAR_METERMODE;
+        this->hColumns[1].names[r] = xStrdup("RightCPUs4");
+        this->hColumns[1].modes[r++] = BAR_METERMODE;
+     } else if (initialCpuCount > 8) {
+        this->hColumns[0].names[0] = xStrdup("LeftCPUs2");
+        this->hColumns[0].modes[0] = BAR_METERMODE;
+        this->hColumns[1].names[r] = xStrdup("RightCPUs2");
+        this->hColumns[1].modes[r++] = BAR_METERMODE;
+     } else if (initialCpuCount > 4) {
+        this->hColumns[0].names[0] = xStrdup("LeftCPUs");
+        this->hColumns[0].modes[0] = BAR_METERMODE;
+        this->hColumns[1].names[r] = xStrdup("RightCPUs");
+        this->hColumns[1].modes[r++] = BAR_METERMODE;
+     } else {
+        this->hColumns[0].names[0] = xStrdup("AllCPUs");
+        this->hColumns[0].modes[0] = BAR_METERMODE;
+     }
+     this->hColumns[0].names[1] = xStrdup("Memory");
+     this->hColumns[0].modes[1] = BAR_METERMODE;
+     this->hColumns[0].names[2] = xStrdup("Swap");
+     this->hColumns[0].modes[2] = BAR_METERMODE;
+     this->hColumns[0].names[3] = xStrdup("CPU");
+     this->hColumns[0].modes[3] = BAR_METERMODE;
+     this->hColumns[1].names[r] = xStrdup("Tasks");
+     this->hColumns[1].modes[r++] = TEXT_METERMODE;
+     this->hColumns[1].names[r] = xStrdup("LoadAverage");
+     this->hColumns[1].modes[r++] = TEXT_METERMODE;
+     this->hColumns[1].names[r] = xStrdup("Uptime");
+     this->hColumns[1].modes[r++] = TEXT_METERMODE;
    }
-   this->hColumns[0].names[1] = xStrdup("Memory");
-   this->hColumns[0].modes[1] = BAR_METERMODE;
-   this->hColumns[0].names[2] = xStrdup("Swap");
-   this->hColumns[0].modes[2] = BAR_METERMODE;
-   this->hColumns[1].names[r] = xStrdup("Tasks");
-   this->hColumns[1].modes[r++] = TEXT_METERMODE;
-   this->hColumns[1].names[r] = xStrdup("LoadAverage");
-   this->hColumns[1].modes[r++] = TEXT_METERMODE;
-   this->hColumns[1].names[r] = xStrdup("Uptime");
-   this->hColumns[1].modes[r++] = TEXT_METERMODE;
 }
 
 static const char* toFieldName(Hashtable* columns, int id, bool* enabled) {
@@ -276,7 +328,7 @@ ScreenSettings* Settings_newScreen(Settings* this, const ScreenDefaults* default
       .treeDirection = 1,
       .sortKey = sortKey,
       .treeSortKey = treeSortKey,
-      .treeView = false,
+      .treeView = true,
       .treeViewAlwaysByPID = false,
       .allBranchesCollapsed = false,
    };
@@ -793,36 +845,36 @@ Settings* Settings_new(const Machine* host, Hashtable* dynamicMeters, Hashtable*
    this->hLayout = HF_TWO_50_50;
    this->hColumns = xCalloc(HeaderLayout_getColumns(this->hLayout), sizeof(MeterColumnSetting));
 
-   this->shadowOtherUsers = false;
+   this->shadowOtherUsers = true;
    this->showThreadNames = false;
    this->hideKernelThreads = true;
    this->hideUserlandThreads = false;
    this->hideRunningInContainer = false;
-   this->highlightBaseName = false;
+   this->highlightBaseName = true;
    this->highlightDeletedExe = true;
    this->shadowDistPathPrefix = false;
    this->highlightMegabytes = true;
-   this->detailedCPUTime = false;
-   this->countCPUsFromOne = false;
+   this->detailedCPUTime = true;
+   this->countCPUsFromOne = true;
    this->showCPUUsage = true;
-   this->showCPUFrequency = false;
+   this->showCPUFrequency = true;
    #ifdef BUILD_WITH_CPU_TEMP
-   this->showCPUTemperature = false;
+   this->showCPUTemperature = true;
    this->degreeFahrenheit = false;
    #endif
    this->showCachedMemory = true;
-   this->updateProcessNames = false;
+   this->updateProcessNames = true;
    this->showProgramPath = true;
    this->highlightThreads = true;
-   this->highlightChanges = false;
+   this->highlightChanges = true;
    this->highlightDelaySecs = DEFAULT_HIGHLIGHT_SECS;
    this->findCommInCmdline = true;
    this->stripExeFromCmdline = true;
    this->showMergedCommand = false;
-   this->hideFunctionBar = 0;
+   this->hideFunctionBar = 1;
    this->headerMargin = true;
    #ifdef HAVE_LIBHWLOC
-   this->topologyAffinity = false;
+   this->topologyAffinity = true;
    #endif
 
    this->screens = xCalloc(Platform_numberOfDefaultScreens, sizeof(ScreenSettings*));
@@ -862,7 +914,7 @@ Settings* Settings_new(const Machine* host, Hashtable* dynamicMeters, Hashtable*
    if (!realpath(this->initialFilename, this->filename))
       free_and_xStrdup(&this->filename, this->initialFilename);
 
-   this->colorScheme = 0;
+   this->colorScheme = 6;
 #ifdef HAVE_GETMOUSE
    this->enableMouse = true;
 #endif

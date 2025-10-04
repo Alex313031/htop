@@ -23,7 +23,7 @@ in the source distribution for its full text.
 #define PROCESS_FLAG_CWD             0x00000002
 #define PROCESS_FLAG_SCHEDPOL        0x00000004
 
-#define DEFAULT_HIGHLIGHT_SECS 5
+#define DEFAULT_HIGHLIGHT_SECS 4
 
 /* Sentinel value for an unknown niceness in Process.nice */
 #define PROCESS_NICE_UNKNOWN (-LONG_MAX)
