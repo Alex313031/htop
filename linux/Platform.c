@@ -247,6 +247,8 @@ const MeterClass* const Platform_meterTypes[] = {
    &ZfsArcMeter_class,
    &ZfsCompressedArcMeter_class,
    &ZramMeter_class,
+   &DiskIORateMeter_class,
+   &DiskIOTimeMeter_class,
    &DiskIOMeter_class,
    &NetworkIOMeter_class,
    &SELinuxMeter_class,
@@ -667,10 +669,10 @@ bool Platform_getDiskIO(DiskIOData* data) {
       char diskname[32];
       unsigned long long int read_tmp, write_tmp, timeSpend_tmp;
       if (sscanf(lineBuffer, "%*d %*d %31s %*u %*u %llu %*u %*u %*u %llu %*u %*u %llu", diskname, &read_tmp, &write_tmp, &timeSpend_tmp) == 4) {
-         if (String_startsWith(diskname, "dm-"))
-            continue;
-
-         if (String_startsWith(diskname, "zram"))
+         if (String_startsWith(diskname, "dm-") ||
+             String_startsWith(diskname, "loop") ||
+             String_startsWith(diskname, "md") ||
+             String_startsWith(diskname, "zram"))
             continue;
 
          /* only count root disks, e.g. do not count IO from sda and sda1 twice */

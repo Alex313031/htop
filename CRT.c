@@ -29,7 +29,7 @@ in the source distribution for its full text.
 #include <sys/mman.h>
 #endif
 
-#if defined(HAVE_LIBUNWIND_H) && defined(HAVE_LIBUNWIND)
+#if defined(HAVE_LIBUNWIND_H) && defined(HAVE_LOCAL_UNWIND)
 # define PRINT_BACKTRACE
 # define UNW_LOCAL_ONLY
 # include <libunwind.h>
@@ -1142,6 +1142,11 @@ static bool terminalSupportsDefinedKeys(const char* termType) {
          return true;
       }
       break;
+   case 'f':
+      if (String_eq(termType, "foot")) {
+         return true;
+      }
+      break;
    case 's':
       if (termType[1] == 't' && IS_END_OR_DASH(termType[2])) {
          return true;
@@ -1346,7 +1351,7 @@ void CRT_setColors(int colorScheme) {
 
 #ifdef PRINT_BACKTRACE
 static void print_backtrace(void) {
-#if defined(HAVE_LIBUNWIND_H) && defined(HAVE_LIBUNWIND)
+#if defined(HAVE_LIBUNWIND_H) && defined(HAVE_LOCAL_UNWIND)
    unw_context_t context;
    unw_getcontext(&context);
 

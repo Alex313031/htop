@@ -114,6 +114,8 @@ const MeterClass* const Platform_meterTypes[] = {
    &ZfsArcMeter_class,
    &ZfsCompressedArcMeter_class,
    &ZramMeter_class,
+   &DiskIORateMeter_class,
+   &DiskIOTimeMeter_class,
    &DiskIOMeter_class,
    &NetworkIOMeter_class,
    &SysArchMeter_class,
@@ -260,6 +262,8 @@ static const char* Platform_metricNames[] = {
    [PCP_METRIC_COUNT] = NULL
 };
 
+static void Platform_setRelease(void);
+
 #ifndef HAVE_PMLOOKUPDESCS
 /*
  * pmLookupDescs(3) exists in latest versions of libpcp (5.3.6+),
@@ -350,7 +354,7 @@ bool Platform_init(void) {
    if (opts.context == PM_CONTEXT_ARCHIVE) {
       gettimeofday(&pcp->offset, NULL);
 #if PMAPI_VERSION >= 3
-      struct timeval start = { opts.start.tv_sec, opts.start.tv_nsec / 1000 };
+      struct timeval start = { opts.start.tv_sec, (suseconds_t)(opts.start.tv_nsec / 1000) };
       pmtimevalDec(&pcp->offset, &start);
 #else
       pmtimevalDec(&pcp->offset, &opts.start);
@@ -367,14 +371,15 @@ bool Platform_init(void) {
    PCPDynamicColumns_init(&pcp->columns);
    PCPDynamicScreens_init(&pcp->screens, &pcp->columns);
 
-   sts = pmLookupName(pcp->totalMetrics, pcp->names, pcp->pmids);
+   int total = (int) pcp->totalMetrics;
+   sts = pmLookupName(total, pcp->names, pcp->pmids);
    if (sts < 0) {
       fprintf(stderr, "Error: cannot lookup metric names: %s\n", pmErrStr(sts));
       Platform_done();
       return false;
    }
 
-   sts = pmLookupDescs(pcp->totalMetrics, pcp->pmids, pcp->descs);
+   sts = pmLookupDescs(total, pcp->pmids, pcp->descs);
    if (sts < 1) {
       if (sts < 0)
          fprintf(stderr, "Error: cannot lookup descriptors: %s\n", pmErrStr(sts));
@@ -399,12 +404,13 @@ bool Platform_init(void) {
    Metric_enable(PCP_UNAME_DISTRO, true);
 
    /* enable metrics for all dynamic columns (including those from dynamic screens) */
-   for (size_t i = pcp->columns.offset; i < pcp->columns.offset + pcp->columns.count; i++)
-      Metric_enable(i, true);
+   Metric metric = Metric_fromId(pcp->columns.offset);
+   for (; metric < pcp->columns.offset + pcp->columns.count; metric++)
+      Metric_enable(metric, true);
 
    Metric_fetch(NULL);
 
-   for (Metric metric = 0; metric < PCP_PROC_PID; metric++)
+   for (metric = 0; metric < PCP_PROC_PID; metric++)
       Metric_enable(metric, true);
    Metric_enable(PCP_PID_MAX, false); /* needed one time only */
    Metric_enable(PCP_BOOTTIME, false);
@@ -415,7 +421,7 @@ bool Platform_init(void) {
 
    /* first sample (fetch) performed above, save constants */
    Platform_getBootTime();
-   Platform_getRelease(0);
+   Platform_setRelease();
    Platform_getMaxCPU();
    Platform_getMaxPid();
 
@@ -654,14 +660,7 @@ void Platform_getHostname(char* buffer, size_t size) {
    String_safeStrncpy(buffer, hostname, size);
 }
 
-void Platform_getRelease(char** string) {
-   /* fast-path - previously-formatted string */
-   if (string) {
-      *string = pcp->release;
-      return;
-   }
-
-   /* first call, extract just-sampled values */
+static void Platform_setRelease(void) {
    pmAtomValue sysname, release, machine, distro;
    if (!Metric_values(PCP_UNAME_SYSNAME, &sysname, 1, PM_TYPE_STRING))
       sysname.cp = NULL;
@@ -713,6 +712,13 @@ void Platform_getRelease(char** string) {
    free(machine.cp);
    free(release.cp);
    free(sysname.cp);
+}
+
+const char* Platform_getRelease(void) {
+   if (pcp->release == NULL)
+      Platform_setRelease();
+
+   return pcp->release;
 }
 
 char* Platform_getProcessEnv(pid_t pid) {
@@ -896,7 +902,8 @@ Hashtable* Platform_dynamicColumns(void) {
 const char* Platform_dynamicColumnName(unsigned int key) {
    PCPDynamicColumn* this = Hashtable_get(pcp->columns.table, key);
    if (this) {
-      Metric_enable(this->id, true);
+      Metric metric = Metric_fromId(this->id);
+      Metric_enable(metric, true);
       if (this->super.caption)
          return this->super.caption;
       if (this->super.heading)

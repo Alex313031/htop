@@ -143,6 +143,8 @@ const MeterClass* const Platform_meterTypes[] = {
    &RightCPUs8Meter_class,
    &ZfsArcMeter_class,
    &ZfsCompressedArcMeter_class,
+   &DiskIORateMeter_class,
+   &DiskIOTimeMeter_class,
    &DiskIOMeter_class,
    &NetworkIOMeter_class,
    &FileDescriptorMeter_class,
@@ -724,4 +726,75 @@ void Platform_gettime_monotonic(uint64_t* msec) {
 
 #endif
 
+}
+
+static void Platform_getOSRelease(char* buffer, size_t bufferLen) {
+   static const CFStringRef osfiles[] = {
+#ifdef OSRELEASEFILE
+      CFSTR(OSRELEASEFILE) /* Custom path for testing; undefined by default */,
+#endif
+      CFSTR("/System/Library/CoreServices/SystemVersion.plist"),
+   };
+
+   if (!bufferLen)
+      return;
+
+   CFPropertyListRef plist = NULL;
+   for (size_t i = 0; i < ARRAYSIZE(osfiles); i++) {
+      CFURLRef url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, osfiles[i], kCFURLPOSIXPathStyle, /*isDirectory*/false);
+      if (!url)
+         continue;
+
+      CFReadStreamRef stream = CFReadStreamCreateWithFile(kCFAllocatorDefault, url);
+      CFRelease(url);
+
+      if (!stream)
+         continue;
+
+      bool canRead = CFReadStreamOpen(stream);
+      if (canRead) {
+         plist = CFPropertyListCreateWithStream(kCFAllocatorDefault, stream, 0, kCFPropertyListImmutable, NULL, NULL);
+         CFReadStreamClose(stream);
+      }
+      CFRelease(stream);
+
+      if (canRead)
+         break;
+   }
+
+   if (!plist)
+      goto fail;
+
+   CFStringRef str = NULL;
+   if (CFGetTypeID(plist) == CFDictionaryGetTypeID()) {
+      CFDictionaryRef dict = (CFDictionaryRef)plist;
+
+      CFStringRef productName = CFDictionaryGetValue(dict, CFSTR("ProductName"));
+      CFStringRef productVersion = CFDictionaryGetValue(dict, CFSTR("ProductVersion"));
+      CFStringRef separator = productName && productVersion ? CFSTR(" ") : CFSTR("");
+
+      if (!productName)
+         productName = CFSTR("");
+      if (!productVersion)
+         productVersion = CFSTR("");
+
+      str = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@%@%@"), productName, separator, productVersion);
+   }
+   CFRelease(plist);
+
+   if (!str)
+      goto fail;
+
+   bool ok = CFStringGetCString(str, buffer, bufferLen, kCFStringEncodingUTF8);
+   CFRelease(str);
+
+   if (ok)
+      return;
+
+fail:
+   buffer[0] = '\0';
+}
+
+const char* Platform_getRelease(void) {
+   return Generic_unameRelease(Platform_getOSRelease);
 }
