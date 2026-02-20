@@ -1,7 +1,7 @@
 /*
 htop - ScreensPanel.c
 (C) 2004-2011 Hisham H. Muhammad
-(C) 2020-2023 htop dev team
+(C) 2020-2026 htop dev team
 Released under the GNU GPLv2+, see the COPYING file
 in the source distribution for its full text.
 */
@@ -48,6 +48,17 @@ ScreenListItem* ScreenListItem_new(const char* value, ScreenSettings* ss) {
 
 static const char* const ScreensFunctions[] = {"      ", "Rename", "      ", "      ", "New   ", "      ", "MoveUp", "MoveDn", "Remove", "Done  ", NULL};
 static const char* const DynamicFunctions[] = {"      ", "Rename", "      ", "      ", "      ", "      ", "MoveUp", "MoveDn", "Remove", "Done  ", NULL};
+static const char* const ScreensRenamingFunctions[] = {"      ", "Cancel", "      ", "      ", "      ", "      ", "      ", "      ", "      ", "Done  ", NULL};
+static FunctionBar* Screens_renamingBar = NULL;
+
+static void rebuildSettingsArray(Panel* super, int selected);
+
+void ScreensPanel_cleanup(void) {
+   if (Screens_renamingBar) {
+      FunctionBar_delete(Screens_renamingBar);
+      Screens_renamingBar = NULL;
+   }
+}
 
 static void ScreensPanel_delete(Object* object) {
    Panel* super = (Panel*) object;
@@ -88,7 +99,8 @@ static HandlerResult ScreensPanel_eventHandlerRenaming(Panel* super, int ch) {
          break;
       case '\n':
       case '\r':
-      case KEY_ENTER: {
+      case KEY_ENTER:
+      case KEY_F(10): {
          ListItem* item = (ListItem*) Panel_getSelected(super);
          if (!item)
             break;
@@ -96,20 +108,37 @@ static HandlerResult ScreensPanel_eventHandlerRenaming(Panel* super, int ch) {
          free(this->saved);
          item->value = xStrdup(this->buffer);
          this->renamingItem = NULL;
+         this->renamingNewItem = false;
          super->cursorOn = false;
          Panel_setSelectionColor(super, PANEL_SELECTION_FOCUS);
+         Panel_setDefaultBar(super);
          ScreensPanel_update(super);
          break;
       }
-      case 27: { // Esc
+      case 27: // Esc
+      case KEY_F(2): {
          ListItem* item = (ListItem*) Panel_getSelected(super);
          if (!item)
             break;
          assert(item == this->renamingItem);
+
+         // Restore item->value to the heap-allocated saved string.
+         // This is safe for both cases: existing items keep their name,
+         // and new items need this before deletion to avoid freeing the stack buffer.
          item->value = this->saved;
+
+         if (this->renamingNewItem) {
+            // If canceling a newly created item, delete it
+            Panel_remove(super, Panel_getSelectedIndex(super));
+            // Rebuild with the updated selection after removal
+            rebuildSettingsArray(super, Panel_getSelectedIndex(super));
+         }
+
+         this->renamingNewItem = false;
          this->renamingItem = NULL;
          super->cursorOn = false;
          Panel_setSelectionColor(super, PANEL_SELECTION_FOCUS);
+         Panel_setDefaultBar(super);
          break;
       }
    }
@@ -134,6 +163,7 @@ static void startRenaming(Panel* super) {
    Panel_setSelectionColor(super, PANEL_EDIT);
    super->selectedLen = strlen(this->buffer);
    Panel_setCursorToSelection(super);
+   super->currentBar = Screens_renamingBar;
 }
 
 static void rebuildSettingsArray(Panel* super, int selected) {
@@ -201,6 +231,7 @@ static HandlerResult ScreensPanel_eventHandlerNormal(Panel* super, int ch) {
          break;
       case KEY_F(2):
       case KEY_CTRL('R'):
+         this->renamingNewItem = false;
          startRenaming(super);
          result = HANDLED;
          break;
@@ -209,6 +240,7 @@ static HandlerResult ScreensPanel_eventHandlerNormal(Panel* super, int ch) {
          if (this->settings->dynamicScreens)
             break;
          addNewScreen(super);
+         this->renamingNewItem = true;
          startRenaming(super);
          shouldRebuildArray = true;
          result = HANDLED;
@@ -293,6 +325,9 @@ ScreensPanel* ScreensPanel_new(Settings* settings) {
    Panel* super = &this->super;
 
    FunctionBar* fuBar = FunctionBar_new(settings->dynamicScreens ? DynamicFunctions : ScreensFunctions, NULL, NULL);
+   if (!Screens_renamingBar) {
+      Screens_renamingBar = FunctionBar_new(ScreensRenamingFunctions, NULL, NULL);
+   }
    Panel_init(super, 1, 1, 1, 1, Class(ListItem), true, fuBar);
 
    Hashtable* columns = settings->dynamicColumns;
@@ -302,6 +337,7 @@ ScreensPanel* ScreensPanel_new(Settings* settings) {
    this->availableColumns = AvailableColumnsPanel_new((Panel*) this->columns, columns);
    this->moving = false;
    this->renamingItem = NULL;
+   this->renamingNewItem = false;
    super->cursorOn = false;
    this->cursor = 0;
    Panel_setHeader(super, "Screens");

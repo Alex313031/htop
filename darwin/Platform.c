@@ -15,11 +15,11 @@ in the source distribution for its full text.
 #include <math.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <net/if.h>
 #include <net/if_types.h>
 #include <net/route.h>
 #include <sys/socket.h>
 #include <mach/port.h>
+#include <net/if.h> // After `sys/socket.h` for struct `sockaddr` (for iOS6 SDK)
 
 #include <CoreFoundation/CFBase.h>
 #include <CoreFoundation/CFDictionary.h>
@@ -36,7 +36,6 @@ in the source distribution for its full text.
 #include "ClockMeter.h"
 #include "CPUMeter.h"
 #include "CRT.h"
-#include "DateMeter.h"
 #include "DateTimeMeter.h"
 #include "FileDescriptorMeter.h"
 #include "GPUMeter.h"
@@ -114,6 +113,26 @@ const SignalItem Platform_signals[] = {
 
 const unsigned int Platform_numberOfSignals = ARRAYSIZE(Platform_signals);
 
+enum {
+   MEMORY_CLASS_WIRED = 0,
+   MEMORY_CLASS_SPECULATIVE,
+   MEMORY_CLASS_ACTIVE,
+   MEMORY_CLASS_PURGEABLE,
+   MEMORY_CLASS_COMPRESSED,
+   MEMORY_CLASS_INACTIVE,
+}; // N.B. the chart will display categories in this order
+
+const MemoryClass Platform_memoryClasses[] = {
+    [MEMORY_CLASS_WIRED] = { .label = "wired", .countsAsUsed = true, .countsAsCache = false, .color = MEMORY_1 }, // pages wired down to physical memory (kernel)
+   [MEMORY_CLASS_SPECULATIVE] = { .label = "speculative", .countsAsUsed = true, .countsAsCache = true, .color = MEMORY_2 }, // readahead optimization caches
+   [MEMORY_CLASS_ACTIVE] = { .label = "active", .countsAsUsed = true, .countsAsCache = false, .color = MEMORY_3 }, // userland pages actively being used
+   [MEMORY_CLASS_PURGEABLE] = { .label = "purgeable", .countsAsUsed = false, .countsAsCache = true, .color = MEMORY_4 }, // userland pages voluntarily marked "discardable" by apps
+   [MEMORY_CLASS_COMPRESSED] = { .label = "compressed", .countsAsUsed = true, .countsAsCache = false, .color = MEMORY_5 }, // userland pages being compressed (means memory pressure++)
+   [MEMORY_CLASS_INACTIVE] = { .label = "inactive", .countsAsUsed = true, .countsAsCache = true, .color = MEMORY_6 }, // pages no longer used; macOS counts them as "used" anyway...
+};
+
+const unsigned int Platform_numberOfMemoryClasses = ARRAYSIZE(Platform_memoryClasses);
+
 const MeterClass* const Platform_meterTypes[] = {
    &CPUMeter_class,
    &ClockMeter_class,
@@ -129,6 +148,7 @@ const MeterClass* const Platform_meterTypes[] = {
    &HostnameMeter_class,
    &SysArchMeter_class,
    &UptimeMeter_class,
+   &SecondsUptimeMeter_class,
    &AllCPUsMeter_class,
    &AllCPUs2Meter_class,
    &AllCPUs4Meter_class,
@@ -389,31 +409,41 @@ cleanup:
 
 void Platform_setMemoryValues(Meter* mtr) {
    const DarwinMachine* dhost = (const DarwinMachine*) mtr->host;
-#ifdef HAVE_STRUCT_VM_STATISTICS64
-   const struct vm_statistics64* vm = &dhost->vm_stats;
-#else
-   const struct vm_statistics* vm = &dhost->vm_stats;
-#endif
+   const Settings* settings = mtr->host->settings;
    double page_K = (double)vm_page_size / (double)1024;
 
+#ifdef HAVE_STRUCT_VM_STATISTICS64
+   const struct vm_statistics64* vm = &dhost->vm_stats;
+   #ifdef HAVE_STRUCT_VM_STATISTICS64_EXTERNAL_PAGE_COUNT
+   const natural_t external_page_count = vm->external_page_count;
+   #else
+   const natural_t external_page_count = 0;
+   #endif
+   #ifdef HAVE_STRUCT_VM_STATISTICS64_COMPRESSOR_PAGE_COUNT
+   const natural_t compressor_page_count = vm->compressor_page_count;
+   #else
+   const natural_t compressor_page_count = 0;
+   #endif
+#else
+   const struct vm_statistics* vm = &dhost->vm_stats;
+   const natural_t external_page_count = 0;
+   const natural_t compressor_page_count = 0;
+#endif // HAVE_STRUCT_VM_STATISTICS64
+
    mtr->total = dhost->host_info.max_mem / 1024;
-#ifdef HAVE_STRUCT_VM_STATISTICS64
-   natural_t used = vm->active_count + vm->inactive_count +
-              vm->speculative_count + vm->wire_count +
-              vm->compressor_page_count - vm->purgeable_count - vm->external_page_count;
-   mtr->values[MEMORY_METER_USED] = (double)(used - vm->compressor_page_count) * page_K;
-#else
-   mtr->values[MEMORY_METER_USED] = (double)(vm->active_count + vm->wire_count) * page_K;
-#endif
-   // mtr->values[MEMORY_METER_SHARED] = "shared memory, like tmpfs and shm"
-#ifdef HAVE_STRUCT_VM_STATISTICS64
-   mtr->values[MEMORY_METER_COMPRESSED] = (double)vm->compressor_page_count * page_K;
-#else
-   // mtr->values[MEMORY_METER_COMPRESSED] = "compressed memory, like zswap on linux"
-#endif
-   mtr->values[MEMORY_METER_BUFFERS] = (double)vm->purgeable_count * page_K;
-   mtr->values[MEMORY_METER_CACHE] = (double)vm->inactive_count * page_K;
-   // mtr->values[MEMORY_METER_AVAILABLE] = "available memory"
+   mtr->values[MEMORY_CLASS_WIRED]       = page_K * vm->wire_count;
+   if (settings->showCachedMemory) {
+      mtr->values[MEMORY_CLASS_SPECULATIVE] = page_K * vm->speculative_count;
+      mtr->values[MEMORY_CLASS_ACTIVE]      = page_K * (vm->active_count - vm->purgeable_count - external_page_count); // external pages are pages swapped out
+      mtr->values[MEMORY_CLASS_PURGEABLE]   = page_K * vm->purgeable_count; // purgeable pages are flagged in the active pages
+   }
+   else { // if showCachedMemory is disabled, merge speculative and purgeable into the active pages
+      mtr->values[MEMORY_CLASS_SPECULATIVE] = 0;
+      mtr->values[MEMORY_CLASS_ACTIVE]      = page_K * (vm->speculative_count + vm->active_count - external_page_count); // external pages are pages swapped out
+      mtr->values[MEMORY_CLASS_PURGEABLE]   = 0;
+   }
+   mtr->values[MEMORY_CLASS_COMPRESSED]  = page_K * compressor_page_count;
+   mtr->values[MEMORY_CLASS_INACTIVE]    = page_K * vm->inactive_count; // for some reason macOS counts inactive pages in the "used" memory...
 }
 
 void Platform_setSwapValues(Meter* mtr) {
@@ -424,8 +454,6 @@ void Platform_setSwapValues(Meter* mtr) {
 
    mtr->total = swapused.xsu_total / 1024;
    mtr->values[SWAP_METER_USED] = swapused.xsu_used / 1024;
-   // mtr->values[SWAP_METER_CACHE] = "pages that are both in swap and RAM, like SwapCached on linux"
-   // mtr->values[SWAP_METER_FRONTSWAP] = "pages that are accounted to swap but stored elsewhere, like frontswap on linux"
 }
 
 void Platform_setZfsArcValues(Meter* this) {

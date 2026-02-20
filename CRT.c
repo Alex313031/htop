@@ -178,12 +178,12 @@ static int CRT_colorSchemes[LAST_COLORSCHEME][LAST_COLORELEMENT] = {
       [SWAP_FRONTSWAP] = A_BOLD | ColorPairGrayBlack,
       [GRAPH_1] = A_BOLD | ColorPair(Cyan, Black),
       [GRAPH_2] = ColorPair(Cyan, Black),
-      [MEMORY_USED] = ColorPair(Green, Black),
-      [MEMORY_BUFFERS] = A_BOLD | ColorPair(Blue, Black),
-      [MEMORY_BUFFERS_TEXT] = A_BOLD | ColorPair(Blue, Black),
-      [MEMORY_CACHE] = ColorPair(Yellow, Black),
-      [MEMORY_SHARED] = ColorPair(Magenta, Black),
-      [MEMORY_COMPRESSED] = A_BOLD | ColorPairGrayBlack,
+      [MEMORY_1] = ColorPair(Green, Black),
+      [MEMORY_2] = ColorPair(Magenta, Black),
+      [MEMORY_3] = A_BOLD | ColorPairGrayBlack,
+      [MEMORY_4] = A_BOLD | ColorPair(Blue, Black),
+      [MEMORY_5] = ColorPair(Yellow, Black),
+      [MEMORY_6] = ColorPair(Cyan, Black),
       [HUGEPAGE_1] = ColorPair(Green, Black),
       [HUGEPAGE_2] = ColorPair(Yellow, Black),
       [HUGEPAGE_3] = ColorPair(Red, Black),
@@ -296,12 +296,12 @@ static int CRT_colorSchemes[LAST_COLORSCHEME][LAST_COLORELEMENT] = {
       [SWAP_FRONTSWAP] = A_DIM,
       [GRAPH_1] = A_BOLD,
       [GRAPH_2] = A_NORMAL,
-      [MEMORY_USED] = A_BOLD,
-      [MEMORY_BUFFERS] = A_NORMAL,
-      [MEMORY_BUFFERS_TEXT] = A_NORMAL,
-      [MEMORY_CACHE] = A_NORMAL,
-      [MEMORY_SHARED] = A_NORMAL,
-      [MEMORY_COMPRESSED] = A_DIM,
+      [MEMORY_1] = A_BOLD,
+      [MEMORY_2] = A_NORMAL,
+      [MEMORY_3] = A_NORMAL,
+      [MEMORY_4] = A_NORMAL,
+      [MEMORY_5] = A_DIM,
+      [MEMORY_6] = A_NORMAL,
       [HUGEPAGE_1] = A_BOLD,
       [HUGEPAGE_2] = A_NORMAL,
       [HUGEPAGE_3] = A_REVERSE | A_BOLD,
@@ -414,12 +414,12 @@ static int CRT_colorSchemes[LAST_COLORSCHEME][LAST_COLORELEMENT] = {
       [SWAP_FRONTSWAP] = A_BOLD | ColorPair(Black, White),
       [GRAPH_1] = A_BOLD | ColorPair(Blue, White),
       [GRAPH_2] = ColorPair(Blue, White),
-      [MEMORY_USED] = ColorPair(Green, White),
-      [MEMORY_BUFFERS] = ColorPair(Cyan, White),
-      [MEMORY_BUFFERS_TEXT] = ColorPair(Cyan, White),
-      [MEMORY_CACHE] = ColorPair(Yellow, White),
-      [MEMORY_SHARED] = ColorPair(Magenta, White),
-      [MEMORY_COMPRESSED] = A_BOLD | ColorPair(Black, White),
+      [MEMORY_1] = ColorPair(Green, White),
+      [MEMORY_2] = ColorPair(Cyan, White),
+      [MEMORY_3] = ColorPair(Yellow, White),
+      [MEMORY_4] = ColorPair(Magenta, White),
+      [MEMORY_5] = A_BOLD | ColorPair(Black, White),
+      [MEMORY_6] = ColorPair(Red, White),
       [HUGEPAGE_1] = ColorPair(Green, White),
       [HUGEPAGE_2] = ColorPair(Yellow, White),
       [HUGEPAGE_3] = ColorPair(Red, White),
@@ -532,12 +532,12 @@ static int CRT_colorSchemes[LAST_COLORSCHEME][LAST_COLORELEMENT] = {
       [SWAP_FRONTSWAP] = ColorPairGrayBlack,
       [GRAPH_1] = A_BOLD | ColorPair(Cyan, Black),
       [GRAPH_2] = ColorPair(Cyan, Black),
-      [MEMORY_USED] = ColorPair(Green, Black),
-      [MEMORY_BUFFERS] = ColorPair(Cyan, Black),
-      [MEMORY_BUFFERS_TEXT] = ColorPair(Cyan, Black),
-      [MEMORY_CACHE] = ColorPair(Yellow, Black),
-      [MEMORY_SHARED] = ColorPair(Magenta, Black),
-      [MEMORY_COMPRESSED] = ColorPairGrayBlack,
+      [MEMORY_1] = ColorPair(Green, Black),
+      [MEMORY_2] = ColorPair(Cyan, Black),
+      [MEMORY_3] = ColorPair(Yellow, Black),
+      [MEMORY_4] = ColorPair(Magenta, Black),
+      [MEMORY_5] = ColorPairGrayBlack,
+      [MEMORY_6] = ColorPair(Blue, Black),
       [HUGEPAGE_1] = ColorPair(Green, Black),
       [HUGEPAGE_2] = ColorPair(Yellow, Black),
       [HUGEPAGE_3] = ColorPair(Red, Black),
@@ -650,12 +650,12 @@ static int CRT_colorSchemes[LAST_COLORSCHEME][LAST_COLORELEMENT] = {
       [SWAP_FRONTSWAP] = A_BOLD | ColorPair(Black, Blue),
       [GRAPH_1] = A_BOLD | ColorPair(Cyan, Blue),
       [GRAPH_2] = ColorPair(Cyan, Blue),
-      [MEMORY_USED] = A_BOLD | ColorPair(Green, Blue),
-      [MEMORY_BUFFERS] = A_BOLD | ColorPair(Cyan, Blue),
-      [MEMORY_BUFFERS_TEXT] = A_BOLD | ColorPair(Cyan, Blue),
-      [MEMORY_CACHE] = A_BOLD | ColorPair(Yellow, Blue),
-      [MEMORY_SHARED] = A_BOLD | ColorPair(Magenta, Blue),
-      [MEMORY_COMPRESSED] = A_BOLD | ColorPair(Black, Blue),
+      [MEMORY_1] = A_BOLD | ColorPair(Green, Blue),
+      [MEMORY_2] = A_BOLD | ColorPair(Cyan, Blue),
+      [MEMORY_3] = A_BOLD | ColorPair(Yellow, Blue),
+      [MEMORY_4] = A_BOLD | ColorPair(Magenta, Blue),
+      [MEMORY_5] = A_BOLD | ColorPair(Black, Blue),
+      [MEMORY_6] = ColorPair(Cyan, Blue),
       [HUGEPAGE_1] = A_BOLD | ColorPair(Green, Blue),
       [HUGEPAGE_2] = A_BOLD | ColorPair(Yellow, Blue),
       [HUGEPAGE_3] = A_BOLD | ColorPair(Red, Blue),
@@ -768,12 +768,12 @@ static int CRT_colorSchemes[LAST_COLORSCHEME][LAST_COLORELEMENT] = {
       [SWAP_FRONTSWAP] = ColorPair(Yellow, Black),
       [GRAPH_1] = A_BOLD | ColorPair(Green, Black),
       [GRAPH_2] = ColorPair(Green, Black),
-      [MEMORY_USED] = ColorPair(Green, Black),
-      [MEMORY_BUFFERS] = ColorPair(Blue, Black),
-      [MEMORY_BUFFERS_TEXT] = A_BOLD | ColorPair(Blue, Black),
-      [MEMORY_CACHE] = ColorPair(Yellow, Black),
-      [MEMORY_SHARED] = ColorPair(Magenta, Black),
-      [MEMORY_COMPRESSED] = ColorPair(Yellow, Black),
+      [MEMORY_1] = ColorPair(Green, Black),
+      [MEMORY_2] = ColorPair(Blue, Black),
+      [MEMORY_3] = ColorPair(Yellow, Black),
+      [MEMORY_4] = ColorPair(Magenta, Black),
+      [MEMORY_5] = ColorPair(Yellow, Black),
+      [MEMORY_6] = ColorPair(Cyan, Black),
       [HUGEPAGE_1] = ColorPair(Green, Black),
       [HUGEPAGE_2] = ColorPair(Yellow, Black),
       [HUGEPAGE_3] = ColorPair(Red, Black),
@@ -881,12 +881,12 @@ static int CRT_colorSchemes[LAST_COLORSCHEME][LAST_COLORELEMENT] = {
       [SWAP_FRONTSWAP] = A_BOLD | ColorPairGrayBlack,
       [GRAPH_1]  = A_BOLD,
       [GRAPH_2] = A_NORMAL,
-      [MEMORY_USED] = A_BOLD | ColorPair(Yellow, Black),
-      [MEMORY_BUFFERS] = A_NORMAL,
-      [MEMORY_BUFFERS_TEXT] = A_NORMAL,
-      [MEMORY_CACHE] = A_NORMAL,
-      [MEMORY_SHARED] = A_NORMAL,
-      [MEMORY_COMPRESSED] = A_BOLD | ColorPairGrayBlack,
+      [MEMORY_1] = A_BOLD | ColorPair(Yellow, Black),
+      [MEMORY_2] = A_NORMAL,
+      [MEMORY_3] = A_NORMAL,
+      [MEMORY_4] = A_NORMAL,
+      [MEMORY_5] = A_BOLD | ColorPairGrayBlack,
+      [MEMORY_6] = A_NORMAL,
       [HUGEPAGE_1] = A_BOLD,
       [HUGEPAGE_2] = A_NORMAL,
       [HUGEPAGE_3] = A_BOLD | ColorPair(Cyan, Black),
@@ -1192,8 +1192,6 @@ void CRT_init(const Settings* settings, bool allowUnicode, bool retainScreenOnEx
    redirectStderr();
    noecho();
    CRT_settings = settings;
-   CRT_colors = CRT_colorSchemes[settings->colorScheme];
-   CRT_colorScheme = settings->colorScheme;
 
    for (int i = 0; i < LAST_COLORELEMENT; i++) {
       unsigned int color = CRT_colorSchemes[COLORSCHEME_DEFAULT][i];
@@ -1260,9 +1258,8 @@ IGNORE_WCASTQUAL_END
    CRT_installSignalHandlers();
 
    use_default_colors();
-   if (!has_colors())
-      CRT_colorScheme = COLORSCHEME_MONOCHROME;
-   CRT_setColors(CRT_colorScheme);
+
+   CRT_setColors(has_colors() ? settings->colorScheme : COLORSCHEME_MONOCHROME);
 
 #ifdef HAVE_LIBNCURSESW
    if (allowUnicode && String_eq(nl_langinfo(CODESET), "UTF-8")) {
@@ -1330,6 +1327,10 @@ void CRT_enableDelay(void) {
 }
 
 void CRT_setColors(int colorScheme) {
+   if (colorScheme >= LAST_COLORSCHEME || colorScheme < 0) {
+      colorScheme = COLORSCHEME_DEFAULT;
+   }
+
    CRT_colorScheme = colorScheme;
 
    for (short int i = 0; i < 8; i++) {
