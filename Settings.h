@@ -18,7 +18,7 @@ in the source distribution for its full text.
 #include "RowField.h"
 
 
-#define DEFAULT_DELAY 15
+#define DEFAULT_DELAY 10
 
 #define CONFIG_READER_MIN_VERSION 3
 
