@@ -36,6 +36,7 @@ typedef struct Table_ {
    int following;         /* -1 or row being visually tracked in the user interface */
    int stableId;          /* stable tree view: row ID to keep at fixed screen position (-1 = inactive) */
    int stableLastIdx;     /* panel index where stableId row was placed in the last rebuild */
+   int pendingSelection;  /* one-shot: row ID to (re)select in the next rebuild (-1 = inactive) */
 
    struct Panel_* panel;
 } Table;
@@ -65,6 +66,8 @@ void Table_done(Table* this);
 extern const TableClass Table_class;
 
 void Table_setPanel(Table* this, struct Panel_* panel);
+
+void Table_preserveSelection(Table* this);
 
 void Table_printHeader(const Settings* settings, RichString* header);
 

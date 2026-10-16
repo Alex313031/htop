@@ -291,6 +291,7 @@ DisplayOptionsPanel* DisplayOptionsPanel_new(Settings* settings, ScreenManager* 
    Panel_add(super, (Object*) CheckItem_newByRef("Detailed CPU time (System/IO-Wait/Hard-IRQ/Soft-IRQ/Steal/Guest)", &(settings->detailedCPUTime)));
    Panel_add(super, (Object*) CheckItem_newByRef("Count CPUs from 1 instead of 0", &(settings->countCPUsFromOne)));
    Panel_add(super, (Object*) CheckItem_newByRef("Label CPUs based on SMT topology (e.g. 0a, 0b) instead of CPU index", &(settings->showCPUSMTLabels)));
+   Panel_add(super, (Object*) CheckItem_newByRef("Hide offline CPUs in the CPUs meters (e.g. SMT siblings disabled by nosmt)", &(settings->hideOfflineCPUs)));
    Panel_add(super, (Object*) CheckItem_newByRef("Update process names on every refresh", &(settings->updateProcessNames)));
    Panel_add(super, (Object*) CheckItem_newByRef("Add guest time in CPU meter percentage", &(settings->accountGuestInCPUMeter)));
    Panel_add(super, (Object*) CheckItem_newByRef("Also show CPU percentage numerically", &(settings->showCPUUsage)));
@@ -315,6 +316,7 @@ DisplayOptionsPanel* DisplayOptionsPanel_new(Settings* settings, ScreenManager* 
    Panel_add(super, (Object*) CheckItem_newByRef("Highlight new and old processes", &(settings->highlightChanges)));
    Panel_add(super, (Object*) NumberItem_newByRef("- Highlight time (in seconds)", &(settings->highlightDelaySecs), 0, 1, 24 * 60 * 60));
    Panel_add(super, (Object*) NumberItem_newByRef("Hide main function bar (0 - off, 1 - on ESC until next input, 2 - permanently)", &(settings->hideFunctionBar), 0, 0, 2));
+   Panel_add(super, (Object*) NumberItem_newByRef("Keep columns visible (0 - off, number of leading columns kept in view)", &(settings->keepColumnsVisible), 0, 0, 100));
    Panel_add(super, (Object*) CheckItem_newByRef("Sticky follow", &(settings->stickyFollow)));
    #ifdef HAVE_LIBHWLOC
    Panel_add(super, (Object*) CheckItem_newByRef("Show topology when selecting affinity by default", &(settings->topologyAffinity)));

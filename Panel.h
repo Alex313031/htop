@@ -73,6 +73,7 @@ struct Panel_ {
    void* eventHandlerState;
    int scrollV;
    int scrollH;
+   int pinnedWidth; /* width (in columns) of the leading, non-scrolling region */
    bool needsRedraw;
    bool cursorOn;
    bool wasFocus;
@@ -90,7 +91,7 @@ struct Panel_ {
 
 /* Synthetic event: mouse click in the function-bar input field.
    When set, Panel.lastMouseBarClickX holds the screen X of the click. */
-#define KEY_MOUSE_BAR_CLICK  (KEY_MAX + 50)
+#define KEY_MOUSE_BAR_CLICK  (KEY_MAX_HTOP + 50)
 
 extern const PanelClass Panel_class;
 

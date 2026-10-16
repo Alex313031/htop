@@ -9,6 +9,7 @@ in the source distribution for its full text.
 
 #include "TasksMeter.h"
 
+#include "Action.h"
 #include "CRT.h"
 #include "Machine.h"
 #include "Macros.h"
@@ -47,12 +48,12 @@ static void TasksMeter_display(const Object* cast, RichString* out) {
    len = xSnprintf(buffer, sizeof(buffer), "%d", (int)this->values[2]);
    RichString_appendnAscii(out, CRT_colors[METER_VALUE], buffer, len);
 
-   RichString_appendAscii(out, settings->hideUserlandThreads ? CRT_colors[METER_SHADOW] : CRT_colors[METER_TEXT], ", ");
+   RichString_appendAscii(out, CRT_colors[METER_TEXT], ", ");
    len = xSnprintf(buffer, sizeof(buffer), "%d", (int)this->values[1]);
    RichString_appendnAscii(out, settings->hideUserlandThreads ? CRT_colors[METER_SHADOW] : CRT_colors[TASKS_RUNNING], buffer, len);
    RichString_appendAscii(out, settings->hideUserlandThreads ? CRT_colors[METER_SHADOW] : CRT_colors[METER_TEXT], " thr");
 
-   RichString_appendAscii(out, settings->hideKernelThreads ? CRT_colors[METER_SHADOW] : CRT_colors[METER_TEXT], ", ");
+   RichString_appendAscii(out, CRT_colors[METER_TEXT], ", ");
    len = xSnprintf(buffer, sizeof(buffer), "%d", (int)this->values[0]);
    RichString_appendnAscii(out, settings->hideKernelThreads ? CRT_colors[METER_SHADOW] : CRT_colors[TASKS_RUNNING], buffer, len);
    RichString_appendAscii(out, settings->hideKernelThreads ? CRT_colors[METER_SHADOW] : CRT_colors[METER_TEXT], " kthr");
@@ -63,6 +64,50 @@ static void TasksMeter_display(const Object* cast, RichString* out) {
    RichString_appendAscii(out, CRT_colors[METER_TEXT], " running");
 }
 
+static int TasksMeter_click(Meter* this, int relX, int relY ATTR_UNUSED) {
+   /* Click handling is only implemented in text mode. Go somebody else™ do that for LED mode :) */
+   if (this->mode != TEXT_METERMODE) {
+      return HTOP_OK;
+   }
+
+   Settings* settings = this->host->settings;
+   char tmp[32];
+
+   /* Layout in text mode (after the "Tasks: " caption):
+    * {processes}, {thr_count} thr, {kthr_count} kthr; {running} running
+    */
+   static const int captionLen = 7; // strlen("Tasks: ")
+   int procLen = xSnprintf(tmp, sizeof(tmp), "%d", (int)this->values[2]);
+
+   int thrStart = captionLen + procLen + 2; // +2 for ", "
+   int thrLen   = xSnprintf(tmp, sizeof(tmp), "%d", (int)this->values[1]);
+   int thrEnd   = thrStart + thrLen + 4;    // +4 for " thr"
+
+   int kthrStart = thrEnd + 2;              // +2 for ", "
+   int kthrLen   = xSnprintf(tmp, sizeof(tmp), "%d", (int)this->values[0]);
+   int kthrEnd   = kthrStart + kthrLen + 5; // +5 for " kthr"
+
+   if (relX >= thrStart && relX < thrEnd) {
+      settings->hideUserlandThreads = !settings->hideUserlandThreads;
+      settings->lastUpdate++;
+
+      Table_preserveSelection(this->host->activeTable);
+
+      return HTOP_RECALCULATE | HTOP_SAVE_SETTINGS | HTOP_KEEP_FOLLOWING;
+   }
+
+   if (relX >= kthrStart && relX < kthrEnd) {
+      settings->hideKernelThreads = !settings->hideKernelThreads;
+      settings->lastUpdate++;
+
+      Table_preserveSelection(this->host->activeTable);
+
+      return HTOP_RECALCULATE | HTOP_SAVE_SETTINGS | HTOP_KEEP_FOLLOWING;
+   }
+
+   return HTOP_OK;
+}
+
 const MeterClass TasksMeter_class = {
    .super = {
       .extends = Class(Meter),
@@ -70,6 +115,7 @@ const MeterClass TasksMeter_class = {
       .display = TasksMeter_display,
    },
    .updateValues = TasksMeter_updateValues,
+   .click = TasksMeter_click,
    .defaultMode = TEXT_METERMODE,
    .supportedModes = METERMODE_DEFAULT_SUPPORTED,
    .maxItems = 4,

@@ -9,22 +9,66 @@ in the source distribution for its full text.
 
 #include "History.h"
 
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #include "Macros.h"
 #include "XUtils.h"
 
 
+/* Determine whether the history file is safe to (over)write, mirroring the
+   checks Settings_read() applies to htoprc: the file must be a regular file
+   owned by the effective user with owner-write permission. The O_NOFOLLOW
+   flag guards the final path component against symlink attacks, while
+   O_NONBLOCK keeps an owned FIFO from blocking the read-only fallback. */
 static void History_load(History* this) {
    if (!this->filename)
       return;
-   FILE* fp = fopen(this->filename, "r");
-   if (!fp)
+
+   int fd = -1;
+   do {
+      fd = open(this->filename, O_RDWR | O_NOCTTY | O_NOFOLLOW | O_NONBLOCK);
+   } while (fd < 0 && errno == EINTR);
+
+   if (fd < 0) {
+      this->writeHistory = (errno == ENOENT);
+      if (errno != EACCES && errno != EPERM && errno != EROFS)
+         return;
+   } else {
+      struct stat sb;
+      int err = fstat(fd, &sb);
+      this->writeHistory = !err && S_ISREG(sb.st_mode) && (sb.st_mode & S_IWUSR) && sb.st_uid == geteuid();
+   }
+
+   /* If opening read & write is not possible, open read only.
+      O_NOFOLLOW rejects a planted symlink, O_NONBLOCK avoids blocking on
+      non-regular files such as FIFOs when no writer is present. */
+   if (fd < 0) {
+      do {
+         fd = open(this->filename, O_RDONLY | O_NOCTTY | O_NOFOLLOW | O_NONBLOCK);
+      } while (fd < 0 && errno == EINTR);
+   }
+
+   if (fd < 0)
       return;
+
+   /* Only read regular files; reading a FIFO would block. */
+   struct stat sb;
+   if (fstat(fd, &sb) != 0 || !S_ISREG(sb.st_mode)) {
+      close(fd);
+      return;
+   }
+
+   FILE* fp = fdopen(fd, "r");
+   if (!fp) {
+      close(fd);
+      return;
+   }
 
    char line[LINEEDITOR_MAX + 2];
    while (fgets(line, sizeof(line), fp)) {
@@ -48,6 +92,7 @@ History* History_new(const char* filename) {
    this->position = 0;
    this->saved[0] = '\0';
    this->filename = filename ? xStrdup(filename) : NULL;
+   this->writeHistory = true;
 
    if (this->filename)
       History_load(this);
@@ -66,12 +111,27 @@ void History_delete(History* this) {
 }
 
 void History_save(const History* this) {
-   if (!this->filename)
+   if (!this->filename || !this->writeHistory)
       return;
-   /* Settings_write writes things via a temp file & rename, we do it less robust but faster here: */
-   int fd = open(this->filename, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+   /* Settings_write writes things via a temp file & rename, we do it less robust but faster here.
+      O_NOFOLLOW guards against a symlink planted at the final path component,
+      O_NONBLOCK avoids hanging on an existing FIFO, and the fstat() re-check
+      closes a race between open and the owner verification. */
+   int fd = open(this->filename, O_WRONLY | O_NOCTTY | O_CREAT | O_NOFOLLOW | O_NONBLOCK, 0600);
    if (fd == -1)
       return;
+
+   struct stat sb;
+   if (fstat(fd, &sb) != 0 || !S_ISREG(sb.st_mode) || !(sb.st_mode & S_IWUSR) || sb.st_uid != geteuid()) {
+      close(fd);
+      return;
+   }
+
+   if (ftruncate(fd, 0) != 0) {
+      close(fd);
+      return;
+   }
+
    FILE* fp = fdopen(fd, "w");
    if (!fp) {
       close(fd); // fd not consumed on failure, so close it

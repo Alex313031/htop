@@ -80,6 +80,7 @@ typedef struct Settings_ {
    bool stickyFollow;
    bool showCPUFrequency;
    bool showCPUSMTLabels;
+   bool hideOfflineCPUs;
    #ifdef BUILD_WITH_CPU_TEMP
    bool showCPUTemperature;
    bool degreeFahrenheit;
@@ -104,6 +105,7 @@ typedef struct Settings_ {
    bool accountGuestInCPUMeter;
    bool headerMargin;
    bool screenTabs;
+   int keepColumnsVisible;  // number of leading columns kept in view when scrolling horizontally (0 - off). Higher values than the number of columns fall back to pinning all but the last.
    bool showCachedMemory;
    #ifdef HAVE_GETMOUSE
    bool enableMouse;
@@ -150,5 +152,11 @@ void Settings_enableReadonly(void);
 bool Settings_isReadonly(void);
 
 void Settings_setHeaderLayout(Settings* this, HeaderLayout hLayout);
+
+/* Return the path of the search/filter history file, located below the XDG
+   state directory. Ensures the directory exists and migrates a legacy history
+   file stored next to the active configuration file. Returns NULL if no
+   suitable home directory can be determined. */
+char* Settings_getHistoryFile(const char* configFile);
 
 #endif

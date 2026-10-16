@@ -261,17 +261,7 @@ static HandlerResult ScreensPanel_eventHandlerNormal(Panel* super, int ch) {
          }
          /* else: just select the item, do not enter move mode */
          break;
-      case KEY_RECLICK:
-         /* Double click: start renaming */
-         this->renamingNewItem = false;
-         startRenaming(super);
-         result = HANDLED;
-         break;
       case EVENT_SET_SELECTED:
-         if (this->moving)
-            ScreensPanel_cancelMoving(this);
-         result = HANDLED;
-         break;
       case EVENT_PANEL_LOST_FOCUS:
          if (this->moving)
             ScreensPanel_cancelMoving(this);
@@ -285,6 +275,7 @@ static HandlerResult ScreensPanel_eventHandlerNormal(Panel* super, int ch) {
          break;
       case KEY_F(2):
       case KEY_CTRL('R'):
+      case KEY_RECLICK:
          this->renamingNewItem = false;
          startRenaming(super);
          result = HANDLED;
@@ -334,7 +325,7 @@ static HandlerResult ScreensPanel_eventHandlerNormal(Panel* super, int ch) {
          result = HANDLED;
          break;
       default:
-         if (ch < 255 && isalpha(ch))
+         if (0 < ch && ch < 255 && isalpha((unsigned char)ch))
             result = Panel_selectByTyping(super, ch);
          if (result == BREAK_LOOP)
             result = IGNORED;

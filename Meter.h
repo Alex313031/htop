@@ -55,6 +55,7 @@ typedef ATTR_NONNULL void (*Meter_UpdateValues)(Meter*);
 typedef ATTR_NONNULL void (*Meter_Draw)(Meter*, int, int, int);
 typedef ATTR_NONNULL const char* (*Meter_GetCaption)(const Meter*);
 typedef ATTR_NONNULL ATTR_ACCESS3_W(2, 3) void (*Meter_GetUiName)(const Meter*, char*, size_t);
+typedef ATTR_NONNULL int (*Meter_Click)(Meter*, int relX, int relY);
 
 typedef struct MeterClass_ {
    const ObjectClass super;
@@ -65,6 +66,7 @@ typedef struct MeterClass_ {
    const Meter_Draw draw;
    const Meter_GetCaption getCaption;
    const Meter_GetUiName getUiName;
+   const Meter_Click click;
    const MeterModeId defaultMode;
    const uint32_t supportedModes;          /* bitset of supported modes, 1<<mode_id */
    const double total;
@@ -100,6 +102,7 @@ typedef struct MeterClass_ {
 #define Meter_attributes(this_)        As_Meter(this_)->attributes
 #define Meter_name(this_)              As_Meter(this_)->name
 #define Meter_uiName(this_)            As_Meter(this_)->uiName
+#define Meter_clickFn(this_)           As_Meter(this_)->click
 #define Meter_isMultiColumn(this_)     As_Meter(this_)->isMultiColumn
 #define Meter_isPercentChart(this_)    As_Meter(this_)->isPercentChart
 

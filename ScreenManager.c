@@ -150,7 +150,10 @@ static void checkRecalculation(ScreenManager* this, double* oldTime, int* sortTi
       this->state->failedUpdate = Platform_getFailedState();
 
       // always update header, especially to avoid gaps in graph meters
-      Header_updateData(this->header);
+      if (Header_updateData(this->header)) {
+         ScreenManager_resize(this);
+         *force_redraw = true;
+      }
 
       // force redraw if the number of UID/PID digits changed
       if (Process_uidDigits != oldUidDigits || Process_pidDigits != oldPidDigits)
@@ -293,6 +296,24 @@ void ScreenManager_run(ScreenManager* this, Panel** lastFocus, int* lastKey, con
                   if (ch == ERR && panelFocus->cursorOn) {
                      panelFocus->lastMouseBarClickX = mevent.x;
                      ch = KEY_MOUSE_BAR_CLICK;
+                  }
+} else if (!this->state->hideMeters && this->header &&
+                      mevent.x >= this->x1 && mevent.x < COLS + this->x2 &&
+                      mevent.y >= this->y1 && mevent.y < this->y1 + header_height(this) - (settings->screenTabs ? 1 : 0)) {
+                   /* Click in the meters/header area (excluding the screen-tab row) */
+                  int meterReaction = Header_click(this->header, mevent.x - this->x1, mevent.y - this->y1);
+                  if (meterReaction & HTOP_RECALCULATE) {
+                     rescan = true;
+                     sortTimeout = 0;
+                  }
+                  if (meterReaction & HTOP_SAVE_SETTINGS) {
+                     this->host->settings->changed = true;
+                  }
+                  if (meterReaction & HTOP_REFRESH) {
+                     sortTimeout = 0;
+                  }
+                  if (meterReaction) {
+                     force_redraw = true;
                   }
                } else {
                   for (size_t i = 0; i < this->panelCount; i++) {

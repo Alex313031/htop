@@ -136,6 +136,10 @@ const char* RowField_alignedTitle(const struct Settings_* settings, RowField fie
 
 RowField RowField_keyAt(const struct Settings_* settings, int at);
 
+int RowField_pinnedCount(const struct Settings_* settings);
+
+int RowField_pinnedWidth(const struct Settings_* settings);
+
 /* Sets the size of the PID column based on the passed PID */
 void Row_setPidColumnWidth(pid_t maxPid);
 

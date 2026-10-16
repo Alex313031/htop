@@ -155,22 +155,6 @@ static bool expandCollapse(Panel* panel) {
    return true;
 }
 
-static bool collapseIntoParent(Panel* panel) {
-   const Row* r = (Row*) Panel_getSelected(panel);
-   if (!r)
-      return false;
-
-   int parent_id = Row_getGroupOrParent(r);
-   for (int i = 0; i < Panel_size(panel); i++) {
-      Row* row = (Row*) Panel_get(panel, i);
-      if (row->id == parent_id) {
-         row->showChildren = false;
-         Panel_setSelected(panel, i);
-         return true;
-      }
-   }
-   return false;
-}
 
 Htop_Reaction Action_setSortKey(Settings* settings, ProcessField sortKey) {
    ScreenSettings_setSortKey(settings->ss, (RowField) sortKey);
@@ -226,18 +210,22 @@ static Htop_Reaction actionSetSortColumn(State* st) {
 }
 
 static Htop_Reaction actionSortByPID(State* st) {
+   st->host->activeTable->needsSort = true;
    return Action_setSortKey(st->host->settings, PID);
 }
 
 static Htop_Reaction actionSortByMemory(State* st) {
+   st->host->activeTable->needsSort = true;
    return Action_setSortKey(st->host->settings, PERCENT_MEM);
 }
 
 static Htop_Reaction actionSortByCPU(State* st) {
+   st->host->activeTable->needsSort = true;
    return Action_setSortKey(st->host->settings, PERCENT_CPU);
 }
 
 static Htop_Reaction actionSortByTime(State* st) {
+   st->host->activeTable->needsSort = true;
    return Action_setSortKey(st->host->settings, TIME);
 }
 
@@ -245,6 +233,8 @@ static Htop_Reaction actionToggleKernelThreads(State* st) {
    Settings* settings = st->host->settings;
    settings->hideKernelThreads = !settings->hideKernelThreads;
    settings->lastUpdate++;
+
+   Table_preserveSelection(st->host->activeTable);
 
    Machine_scanTables(st->host); // needed to not have a visible delay showing wrong data
 
@@ -256,6 +246,8 @@ static Htop_Reaction actionToggleUserlandThreads(State* st) {
    settings->hideUserlandThreads = !settings->hideUserlandThreads;
    settings->lastUpdate++;
 
+   Table_preserveSelection(st->host->activeTable);
+
    Machine_scanTables(st->host); // needed to not have a visible delay showing wrong data
 
    return HTOP_RECALCULATE | HTOP_SAVE_SETTINGS | HTOP_KEEP_FOLLOWING;
@@ -265,6 +257,8 @@ static Htop_Reaction actionToggleRunningInContainer(State* st) {
    Settings* settings = st->host->settings;
    settings->hideRunningInContainer = !settings->hideRunningInContainer;
    settings->lastUpdate++;
+
+   Table_preserveSelection(st->host->activeTable);
 
    return HTOP_RECALCULATE | HTOP_SAVE_SETTINGS | HTOP_KEEP_FOLLOWING;
 }
@@ -362,13 +356,6 @@ static Htop_Reaction actionExpandOrCollapse(State* st) {
    return changed ? HTOP_RECALCULATE : HTOP_OK;
 }
 
-static Htop_Reaction actionCollapseIntoParent(State* st) {
-   if (!st->host->settings->ss->treeView) {
-      return HTOP_OK;
-   }
-   bool changed = collapseIntoParent((Panel*)st->mainPanel);
-   return changed ? HTOP_RECALCULATE : HTOP_OK;
-}
 
 static Htop_Reaction actionExpandCollapseOrSortColumn(State* st) {
    return st->host->settings->ss->treeView ? actionExpandOrCollapse(st) : actionSetSortColumn(st);
@@ -976,9 +963,12 @@ void Action_setBindings(Htop_Action* keys) {
    keys[' '] = actionTag;
    keys['#'] = actionToggleHideMeters;
    keys['*'] = actionExpandOrCollapseAllBranches;
+   keys[KEY_PADSTAR] = actionExpandOrCollapseAllBranches;
    keys['+'] = actionExpandOrCollapse;
+   keys[KEY_PADPLUS] = actionExpandOrCollapse;
    keys[','] = actionSetSortColumn;
    keys['-'] = actionExpandOrCollapse;
+   keys[KEY_PADMINUS] = actionExpandOrCollapse;
    keys['.'] = actionSetSortColumn;
    keys['/'] = actionIncSearch;
    keys['<'] = actionSetSortColumn;
@@ -1002,8 +992,7 @@ void Action_setBindings(Htop_Action* keys) {
 #endif
    keys['Z'] = actionTogglePauseUpdate;
    keys['['] = actionLowerPriority;
-   keys['\014'] = actionRedraw; // Ctrl+L
-   keys['\177'] = actionCollapseIntoParent;
+   keys[KEY_CTRL('L')] = actionRedraw;
    keys['\\'] = actionIncFilter;
    keys[']'] = actionHigherPriority;
    keys['a'] = actionSetAffinity;

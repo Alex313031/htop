@@ -87,7 +87,9 @@ static HandlerResult MainPanel_eventHandler(Panel* super, int ch) {
 
    if (EVENT_IS_HEADER_CLICK(ch)) {
       int x = EVENT_HEADER_CLICK_GET_X(ch);
-      int hx = super->scrollH + x + 1;
+      int hx = (x < super->pinnedWidth)
+         ? x + 1
+         : super->pinnedWidth + super->scrollH + (x - super->pinnedWidth) + 1;
       RowField field = RowField_keyAt(settings, hx);
       if (ss->treeView && ss->treeViewAlwaysByPID) {
          ss->treeView = false;
@@ -121,6 +123,8 @@ static HandlerResult MainPanel_eventHandler(Panel* super, int ch) {
          reaction |= HTOP_KEEP_FOLLOWING;
          if (confirmedSearch)
             reaction |= HTOP_REFRESH;
+      } else {
+         host->activeTable->following = -1;
       }
       result = HANDLED;
    } else if (ch == 27) {
@@ -130,7 +134,7 @@ static HandlerResult MainPanel_eventHandler(Panel* super, int ch) {
          Panel_setSelectionColor(super, PANEL_SELECTION_FOCUS);
       }
       return HANDLED;
-   } else if (ch != ERR && ch > 0 && ch < KEY_MAX && this->keys[ch]) {
+   } else if (ch != ERR && ch > 0 && ch < KEY_MAX_HTOP && this->keys[ch]) {
       reaction |= (this->keys[ch])(this->state);
       result = HANDLED;
    } else if (0 < ch && ch < 255 && isdigit((unsigned char)ch)) {
@@ -219,7 +223,9 @@ static void MainPanel_drawFunctionBar(Panel* super, bool hideFunctionBar) {
 static void MainPanel_printHeader(Panel* super) {
    MainPanel* this = (MainPanel*) super;
    Machine* host = this->state->host;
-   Table_printHeader(host->settings, &super->header);
+   Settings* settings = host->settings;
+   super->pinnedWidth = RowField_pinnedWidth(settings);
+   Table_printHeader(settings, &super->header);
 }
 
 const PanelClass MainPanel_class = {
@@ -238,7 +244,7 @@ MainPanel* MainPanel_new(void) {
    this->readonlyBar = FunctionBar_new(MainFunctions_ro, NULL, NULL);
    FunctionBar* activeBar = Settings_isReadonly() ? this->readonlyBar : this->processBar;
    Panel_init((Panel*) this, 1, 1, 1, 1, Class(Row), false, activeBar);
-   this->keys = xCalloc(KEY_MAX, sizeof(Htop_Action));
+   this->keys = xCalloc(KEY_MAX_HTOP, sizeof(Htop_Action));
    this->inc = IncSet_new(activeBar);
 
    Action_setBindings(this->keys);

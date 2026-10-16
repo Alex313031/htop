@@ -3,11 +3,12 @@
 htop, pcp-htop \- interactive process viewer
 .SH "SYNOPSIS"
 .B htop
-.RB [ \-dCFhpustvH ]
+.RB [ \-CdFHhMnpstUuV ]
 .br
 .B pcp-htop
-.RB [ \-dCFhpustvH ]
-.RB [ \-\-host/-h\ host ]
+.RB [ \-CdFHhMnpstUuV ]
+.RB [ \-\-host=HOSTSPEC ]
+.RB [ \-\-hostzone | \-\-timezone=TZ ]
 .SH "DESCRIPTION"
 .B htop
 is a cross-platform ncurses-based process viewer.
@@ -35,7 +36,6 @@ to display values from arbitrary metrics.
 See the section below titled
 .B "CONFIG FILES"
 for further details.
-.br
 .SH "COMMAND-LINE OPTIONS"
 Mandatory arguments to long options are mandatory for short options too.
 .TP
@@ -44,26 +44,31 @@ Delay between updates, in tenths of a second. If the delay value is
 less than 1, it is increased to 1, i.e. 1/10 second. If the delay value
 is greater than 100, it is decreased to 100, i.e. 10 seconds.
 .TP
+\fB\-n \-\-max-iterations=NUMBER\fR
+Exit
+.B htop
+after NUMBER iterations, i.e. frame updates.
+.TP
 \fB\-C \-\-no-color \-\-no-colour\fR
 Start
 .B htop
 in monochrome mode
 .TP
-\fB\-F \-\-filter=FILTER
+\fB\-F \-\-filter=FILTER\fR
 Filter processes by terms matching the commands. The terms are matched
 case-insensitive and as fixed strings (not regexs). You can separate multiple terms with "|".
 .TP
 \fB\-\-no-function-bar\fR
 Hide the function bar
 .TP
-\fB\-h \-\-help
+\fB\-h \-\-help\fR
 Display a help message and exit
 .TP
-\fB\-p \-\-pid=PID,PID...\fR
+\fB\-p \-\-pid=PID[,PID...]\fR
 Show only the given PIDs
 .TP
-\fB\-s \-\-sort\-key COLUMN\fR
-Sort by this column (use \-\-sort\-key help for a column list).
+\fB\-s \-\-sort\-key=COLUMN\fR
+Sort by this column (use \-\-sort\-key=help for a column list).
 This will force a list view unless you specify -t at the same time.
 Sorting in tree mode applies to the direct children of each process.
 .TP
@@ -79,23 +84,32 @@ Disable support of mouse control
 \fB\-\-no-meters\fR
 Hide graph meters
 .TP
+\fB\-\-keep-visible[=N]\fR
+Keep the first N columns visible when scrolling sideways in the process list.
+The argument is optional; if omitted, N is taken to be 1, and 0 disables the
+feature (the default). If N is larger than the number of columns of the
+current screen, all columns except the last one are kept visible, so that
+the last column remains scrollable.
+.TP
 \fB\-\-readonly\fR
 Disable all system and process changing features
 .TP
-\fB\-V \-\-version
+\fB\-V \-\-version\fR
 Output version information and exit
 .TP
-\fB\-t \-\-tree[=MODE]
+\fB\-t \-\-tree[=MODE]\fR
 Show processes in tree view.
 This can be used to force a tree view when requesting a sort order with -s.
 The optional MODE can used to set the stable tree mode (0/classic ;
 1/soft/stable ; 2/hard/STABLE).
 Soft mode will try to stabilize the current PID line visually on the screen.
-Hard mode will additionally allow to move the whole tree down, creating
+Hard mode will additionally allow one to move the whole tree down, creating
 empty space above the root when necessary.
 .TP
-\fB\-H \-\-highlight-changes=DELAY\fR
-Highlight new and old processes
+\fB\-H \-\-highlight-changes[=DELAY]\fR
+Highlight new and old processes.
+If DELAY is omitted, the highlight time configured in the setup screen is
+used (5 seconds by default).
 .TP
 \fB\-\-drop-capabilities[=off|basic|strict]\fR
 Linux only; this option needs to have been enabled at compile-time and
@@ -105,6 +119,29 @@ Drop unneeded Linux capabilities.
 In strict mode features like killing, changing process priorities and reading
 process delay accounting information will not work due to fewer capabilities
 being held.
+.TP
+\fB\-\-host=HOSTSPEC\fR
+.B pcp-htop
+only.
+.br
+Read metrics from the PMCD daemon on HOSTSPEC rather than from the local host; see
+.BR PCPIntro (1)
+for the HOSTSPEC syntax.
+.TP
+\fB\-\-hostzone\fR
+.B pcp-htop
+only.
+.br
+Set the reporting timezone to the local timezone of the host supplying the metrics,
+rather than that of the local host.
+Mutually exclusive with \fB\-\-timezone\fR.
+.TP
+\fB\-\-timezone=TZ\fR
+.B pcp-htop
+only.
+.br
+Set the reporting timezone to TZ, using the syntax of the TZ environment variable.
+Mutually exclusive with \fB\-\-hostzone\fR.
 .SH "INTERACTIVE COMMANDS"
 The following commands are supported while in
 .BR htop :
@@ -281,13 +318,13 @@ movement keys like Up, Down, PgUp, and PgDn will end follow mode immediately,
 while Shift+Up and Shift+Down still pan without disabling follow.
 .TP
 .B K
-Hide kernel threads: prevent the threads belonging the kernel to be
+Hide kernel threads: prevent threads belonging to the kernel from being
 displayed in the process list. (This is a toggle key.)
 .TP
 .B H
-Hide user threads: on systems that represent them differently than ordinary
-processes (such as recent NPTL-based systems), this can hide threads from
-userspace processes in the process list. (This is a toggle key.)
+Hide user threads: prevent threads (NPTL, pthreads, LWP, etc.) belonging
+to userspace processes from being displayed in the process list.
+(This is a toggle key.)
 .TP
 .B O
 Hide containerized processes: prevent processes running in a container
@@ -333,7 +370,7 @@ is active, the executable path (/proc/[pid]/exe) and the command name
 The program basename is highlighted if set in the configuration. Additional
 highlighting can be configured for stale executables (cf. EXE column below).
 
-The Command column should be the last column in each screen as can get very long
+The Command column should be the last column in each screen as it can get very long
 and profits from being able to extend its length dynamically.
 
 Additional color highlighting:
@@ -614,6 +651,56 @@ The autogroup nice value for the process autogroup. Requires Linux CFS to be ena
 .TP
 .B All other flags
 Currently unsupported (always displays '-').
+.SH "METERS"
+Header meters (configured in Setup, F2) show live host statistics. The
+.B CPU
+meter is a bar (or text, depending on display mode) that stacks several kinds
+of CPU time. Left-to-right segments match the on-screen legend
+.RB ( F1 / h
+help also shows this in color).
+.PP
+Default
+.B CPU
+bar segments (\"default\" color scheme). In monochrome mode the same segments
+use text attributes instead of hues:
+.TP
+.B low (nice)
+Blue; monochrome: normal intensity. Time running at nice > 0.
+.TP
+.B normal (user)
+Green; monochrome: bold. Ordinary user-mode time.
+.TP
+.B kernel (system)
+Red; monochrome: bold. Kernel / system time.
+.TP
+.B irq
+Yellow; monochrome: bold. Hardware interrupt time (detailed CPU time).
+.TP
+.B soft-irq
+Magenta; monochrome: bold. Software interrupt time (detailed CPU time).
+.TP
+.B steal
+Cyan; monochrome: dim. Time stolen by the hypervisor (detailed CPU time).
+.TP
+.B guest / virt
+Cyan; monochrome: dim. Guest VM time when detailed CPU time is on.
+Labeled
+.B virt
+when it is off (Linux and PCP: steal plus guest combined).
+.TP
+.B io-wait
+Gray; monochrome: normal. Waiting on block I/O (detailed CPU time).
+.PP
+With
+.B Detailed CPU time
+enabled in Setup, the bar expands to show irq, soft-irq, steal, guest and
+io-wait separately. Otherwise Linux and PCP fold steal and guest into
+.B virt
+and some of the finer classes are folded into the main segments.
+.PP
+Exact hues depend on the selected color scheme; monochrome maps the same
+segments to bold / normal / dim as noted above. The interactive help always
+shows the live legend for your current scheme.
 .SH "EXTERNAL LIBRARIES"
 While
 .B htop
@@ -688,6 +775,17 @@ If no user configuration exists
 tries to read the system-wide configuration from
 .I @sysconfdir@/htoprc
 and as a last resort, falls back to its hard coded defaults.
+.LP
+The search and filter history is stored below the XDG state directory, in
+.IR $XDG_STATE_HOME/htop/htop_history ,
+defaulting to
+.IR ~/.local/state/htop/htop_history
+when the
+.IR $XDG_STATE_HOME
+variable is not set.
+A history file left over from an older version stored next to the htoprc
+configuration file is migrated to this location automatically on the next
+start.
 .LP
 You may override the location of the configuration file using the $HTOPRC
 environment variable (so you can have multiple configurations for different

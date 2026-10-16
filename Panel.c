@@ -57,6 +57,7 @@ void Panel_init(Panel* this, int x, int y, int w, int h, const ObjectClass* type
    this->items = Vector_new(type, owner, VECTOR_DEFAULT_SIZE);
    this->scrollV = 0;
    this->scrollH = 0;
+   this->pinnedWidth = 0;
    this->selected = 0;
    this->oldSelected = 0;
    this->prevSelected = -1;
@@ -230,6 +231,21 @@ void Panel_splice(Panel* this, Vector* from) {
    this->needsRedraw = true;
 }
 
+/* Print a RichString at (y, x), keeping the leading 'pinnedWidth' columns fixed
+   and only scrolling the remainder (offset by pinnedWidth + scrollH). */
+static void RichString_printPinnedVal(const RichString* str, int y, int x, int pinnedWidth, int scrollH, int w) {
+   int len = RichString_sizeVal(*str);
+   if (pinnedWidth > 0) {
+      int pinned = MINIMUM(pinnedWidth, MINIMUM(len, w));
+      if (pinned > 0)
+         RichString_printoffnVal(*str, y, x, 0, pinned);
+   }
+   int scrollW = w - pinnedWidth;
+   int start = pinnedWidth + scrollH;
+   if (scrollW > 0 && start >= 0 && start < len)
+      RichString_printoffnVal(*str, y, x + pinnedWidth, start, MINIMUM(len - start, scrollW));
+}
+
 void Panel_draw(Panel* this, bool force_redraw, bool focus, bool highlightSelected, bool hideFunctionBar) {
    assert(this != NULL);
 
@@ -255,10 +271,7 @@ void Panel_draw(Panel* this, bool force_redraw, bool focus, bool highlightSelect
    if (headerLen > 0) {
       attrset(header_attr);
       mvhline(y, x, ' ', this->w);
-      if (scrollH < headerLen) {
-         RichString_printoffnVal(this->header, y, x, scrollH,
-            MINIMUM(headerLen - scrollH, this->w));
-      }
+      RichString_printPinnedVal(&this->header, y, x, this->pinnedWidth, scrollH, this->w);
       attrset(CRT_colors[RESET_COLOR]);
       y++;
       h--;
@@ -277,9 +290,6 @@ void Panel_draw(Panel* this, bool force_redraw, bool focus, bool highlightSelect
          this->scrollV = MAXIMUM(size - h, 0);
          this->needsRedraw = true;
       }
-   }   if (!this->allowExcessScrollV && this->scrollV > size - h) {
-      this->scrollV = MAXIMUM(size - h, 0);
-      this->needsRedraw = true;
    }
    // ensure selection is on screen
    if (this->selected < this->scrollV) {
@@ -312,7 +322,6 @@ void Panel_draw(Panel* this, bool force_redraw, bool focus, bool highlightSelect
          item.highlightAttr = 0;
          Object_display(itemObj, &item);
          int itemLen = RichString_sizeVal(item);
-         int amt = MINIMUM(itemLen - scrollH, this->w);
          if (highlightSelected && i == this->selected) {
             item.highlightAttr = selectionColor;
          }
@@ -322,8 +331,7 @@ void Panel_draw(Panel* this, bool force_redraw, bool focus, bool highlightSelect
             this->selectedLen = itemLen;
          }
          mvhline(y + line, x, ' ', this->w);
-         if (amt > 0)
-            RichString_printoffnVal(item, y + line, x, scrollH, amt);
+         RichString_printPinnedVal(&item, y + line, x, this->pinnedWidth, scrollH, this->w);
          if (item.highlightAttr)
             attrset(CRT_colors[RESET_COLOR]);
          line++;
@@ -337,11 +345,8 @@ void Panel_draw(Panel* this, bool force_redraw, bool focus, bool highlightSelect
       const Object* oldObj = Vector_get(this->items, this->oldSelected);
       RichString_rewind(&item, RichString_size(&item));
       Object_display(oldObj, &item);
-      int oldLen = RichString_sizeVal(item);
       mvhline(y + this->oldSelected - this->scrollV, x + 0, ' ', this->w);
-      if (scrollH < oldLen)
-         RichString_printoffnVal(item, y + this->oldSelected - this->scrollV, x,
-            scrollH, MINIMUM(oldLen - scrollH, this->w));
+      RichString_printPinnedVal(&item, y + this->oldSelected - this->scrollV, x, this->pinnedWidth, scrollH, this->w);
 
       const Object* newObj = Vector_get(this->items, this->selected);
       RichString_rewind(&item, RichString_size(&item));
@@ -352,9 +357,7 @@ void Panel_draw(Panel* this, bool force_redraw, bool focus, bool highlightSelect
       attrset(selectionColor);
       mvhline(y + this->selected - this->scrollV, x + 0, ' ', this->w);
       RichString_setAttr(&item, selectionColor);
-      if (scrollH < newLen)
-         RichString_printoffnVal(item, y + this->selected - this->scrollV, x,
-            scrollH, MINIMUM(newLen - scrollH, this->w));
+      RichString_printPinnedVal(&item, y + this->selected - this->scrollV, x, this->pinnedWidth, scrollH, this->w);
       attrset(CRT_colors[RESET_COLOR]);
    }
    RichString_delete(&item);
@@ -412,6 +415,7 @@ bool Panel_onKey(Panel* this, int key) {
       case KEY_CTRL('B'):
          if (this->scrollH > 0) {
             this->scrollH -= MAXIMUM(CRT_scrollHAmount, 0);
+            this->scrollH = MAXIMUM(this->scrollH, 0);
             this->needsRedraw = true;
          }
          break;

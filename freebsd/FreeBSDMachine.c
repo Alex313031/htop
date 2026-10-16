@@ -376,19 +376,18 @@ static void FreeBSDMachine_scanMemoryInfo(Machine* super) {
    // NOTE: it is wrong in FreeBSD to represent the "shared" memory as a memory class by itself.
    // The only page classes exposed by the kernel are "active", "inactive", "wired", "laundry" and "free".
    // The "shared" memory can be obtained from another sysctl, but there is no simple way
-   // in FreeBSD to determine which page classe(s) this "shared" memory should be subtracted from.
+   // in FreeBSD to determine which page class(es) this "shared" memory should be subtracted from.
 
    // swap
-   struct kvm_swap swap[16];
-   int nswap = kvm_getswapinfo(this->kd, swap, ARRAYSIZE(swap), 0);
-   super->totalSwap = 0;
-   super->usedSwap = 0;
-   for (int i = 0; i < nswap; i++) {
-      super->totalSwap += swap[i].ksw_total;
-      super->usedSwap += swap[i].ksw_used;
+   // `kvm_getswapinfo(3)` returns the last entry as the grand total.
+   struct kvm_swap swap;
+   if (kvm_getswapinfo(this->kd, &swap, 1, 0) < 0) {
+      super->totalSwap = 0;
+      super->usedSwap = 0;
+   } else {
+      super->totalSwap = (memory_t)swap.ksw_total * this->pageSizeKb;
+      super->usedSwap = (memory_t)swap.ksw_used * this->pageSizeKb;
    }
-   super->totalSwap *= this->pageSizeKb;
-   super->usedSwap *= this->pageSizeKb;
 }
 
 void Machine_scan(Machine* super) {

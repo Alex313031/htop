@@ -12,6 +12,7 @@ in the source distribution for its full text.
 
 #include <assert.h>
 #include <ctype.h>
+#include <errno.h>
 #include <getopt.h>
 #include <limits.h>
 #include <locale.h>
@@ -64,6 +65,7 @@ static void printHelpFlag(const char* name) {
    printf("-M --no-mouse                   Disable the mouse\n");
 #endif
    printf("   --no-meters                  Hide meters\n"
+          "   --keep-visible[=N]           Keep the first N columns visible when scrolling sideways (default 1)\n"
           "-n --max-iterations=NUMBER      Exit htop after NUMBER iterations/frame updates\n"
           "-p --pid=PID[,PID,PID...]       Show only the given PIDs\n"
           "   --readonly                   Disable all system and process changing features\n"
@@ -99,6 +101,7 @@ typedef struct CommandLineSettings_ {
    bool readonly;
    bool hideMeters;
    bool hideFunctionBar;
+   int keepColumnsVisible;
 } CommandLineSettings;
 
 static bool parseTreeStableMode(const char* arg, int* stableTreeView) {
@@ -141,6 +144,7 @@ static CommandLineStatus parseArguments(int argc, char** argv, CommandLineSettin
       .readonly = false,
       .hideMeters = false,
       .hideFunctionBar = false,
+      .keepColumnsVisible = -1,
    };
 
    {
@@ -171,6 +175,7 @@ static CommandLineStatus parseArguments(int argc, char** argv, CommandLineSettin
       {"no-function-bar", no_argument,    0, 130},
       {"highlight-changes", optional_argument, 0, 'H'},
       {"readonly",   no_argument,         0, 128},
+      {"keep-visible", optional_argument,  0, 131},
       PLATFORM_LONG_OPTIONS
       {0, 0, 0, 0}
    };
@@ -349,6 +354,26 @@ static CommandLineStatus parseArguments(int argc, char** argv, CommandLineSettin
          case 128:
             flags->readonly = true;
             break;
+         case 131: {
+            if (!optarg) {
+               flags->keepColumnsVisible = 1;
+               break;
+            }
+
+            // parse the optional argument, defaulting to 1 when not given
+            errno = 0;
+            long long tmp = 0;
+            char* optargend = NULL;
+            tmp = strtoll(optarg, &optargend, 0);
+
+            if (errno || *optargend || tmp > INT_MAX || tmp < 0) {
+               fprintf(stderr, "Error: invalid value \"%s\" for --keep-visible.\n", optarg);
+               return STATUS_ERROR_EXIT;
+            }
+
+            flags->keepColumnsVisible = (int)tmp;
+            break;
+         }
 
          default: {
             CommandLineStatus status;
@@ -443,6 +468,8 @@ int CommandLine_run(int argc, char** argv) {
    }
    if (flags.hideFunctionBar)
       settings->hideFunctionBar = 2;
+   if (flags.keepColumnsVisible >= 0)
+      settings->keepColumnsVisible = flags.keepColumnsVisible;
 
    host->iterationsRemaining = flags.iterationsRemaining;
    CRT_init(settings, flags.allowUnicode, flags.iterationsRemaining != -1);
@@ -472,19 +499,10 @@ int CommandLine_run(int argc, char** argv) {
    if (flags.commFilter)
       setCommFilter(&state, &(flags.commFilter));
 
-   /* Set up shared search/filter history, stored next to the config file */
-   const char* rcPath = settings->filename;
-   const char* lastSlash = strrchr(rcPath, '/');
-   char historyPath[PATH_MAX];
-   if (lastSlash) {
-      int dirLen = (int)(lastSlash - rcPath + 1);
-      xSnprintf(historyPath, sizeof(historyPath), "%.*s" "htop_history", dirLen, rcPath);
-   } else {
-   /* no history file saved unless we have a sane rcPath */
-      historyPath[0] = '\0';
-   }
-
+   /* Set up shared search/filter history, stored below the XDG state directory */
+   char* historyPath = Settings_getHistoryFile(settings->filename);
    IncSet_setHistoryFile(panel->inc, historyPath);
+   free(historyPath);
 
    ScreenManager* scr = ScreenManager_new(header, host, &state, true);
    ScreenManager_add(scr, (Panel*) panel, -1);

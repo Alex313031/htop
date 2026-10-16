@@ -32,8 +32,19 @@ Table* Table_init(Table* this, const ObjectClass* klass, Machine* host) {
    this->following = -1;
    this->stableId = -1;
    this->stableLastIdx = 0;
+   this->pendingSelection = -1;
    this->host = host;
    return this;
+}
+
+void Table_preserveSelection(Table* this) {
+   Panel* panel = this->panel;
+   if (panel == NULL)
+      return;
+
+   const Row* selected = (const Row*) Panel_getSelected(panel);
+   if (selected)
+      this->pendingSelection = selected->id;
 }
 
 void Table_done(Table* this) {
@@ -275,18 +286,59 @@ void Table_rebuildPanel(Table* this) {
       }
    }
 
+   /* One-shot: keep the selection on the currently shown process when a
+    * visibility toggle (H/K/O) just happened, redirecting to the process a
+    * now-hidden row belongs to. If no visible target remains, fall back to
+    * anchoring the nearest surviving row below. Ignored while following. */
+   int wantId = this->pendingSelection;
+   int pendingSel = -1;
+   bool pendingFallback = false;
+   if (this->following == -1 && wantId != -1) {
+      const Row* pending = (const Row*) Hashtable_get(this->table, wantId);
+      if (pending != NULL) {
+         if (pending->show) {
+            pendingSel = wantId;
+         } else {
+            int parentId = Row_getGroupOrParent(pending);
+            const Row* redirect = (const Row*) Hashtable_get(this->table, parentId);
+            if (parentId != wantId
+               && redirect != NULL && redirect->show
+               && !Row_matchesFilter(redirect, this)) {
+               pendingSel = parentId;
+            } else {
+               pendingFallback = true;
+            }
+         }
+      }
+   }
+   this->pendingSelection = -1;
+
    const int rowCount = Vector_size(this->displayList);
    bool foundFollowed = false;
+   bool foundPendingSelection = false;
+   bool fallbackNext = false;
+   int fallbackIdx = -1;
    int stableFoundIdx = -1;
    int idx = 0;
 
    for (int i = 0; i < rowCount; i++) {
       Row* row = (Row*) Vector_get(this->displayList, i);
 
+      if (pendingFallback && row->id == wantId) {
+         /* The wanted row is hidden; anchor the next surviving row instead */
+         pendingFallback = false;
+         fallbackNext = true;
+      }
+
       if ( !row->show || (Row_matchesFilter(row, this) == true) )
          continue;
 
       Panel_set(this->panel, idx, (Object*)row);
+
+      if (fallbackNext) {
+         fallbackNext = false;
+         fallbackIdx = idx;
+      }
 
       if (this->following != -1 && row->id == this->following) {
          foundFollowed = true;
@@ -298,6 +350,19 @@ void Table_rebuildPanel(Table* this) {
             followed row is at index 0 (nothing above it to scroll
             off). */
          int newScrollV = idx - (currPos - currScrollV);
+         if (!hardMode || idx == 0) {
+            if (newScrollV < 0)
+               newScrollV = 0;
+         }
+         this->panel->scrollV = newScrollV;
+         this->panel->allowExcessScrollV = true;
+      }
+
+      if (pendingSel != -1 && row->id == pendingSel) {
+         foundPendingSelection = true;
+         Panel_setSelected(this->panel, idx);
+         /* Keep scroll position relative to the selected row */
+         int newScrollV = idx - stableOffset;
          if (!hardMode || idx == 0) {
             if (newScrollV < 0)
                newScrollV = 0;
@@ -319,8 +384,20 @@ void Table_rebuildPanel(Table* this) {
       Panel_setSelectionColor(this->panel, PANEL_SELECTION_FOCUS);
    }
 
+   if (fallbackIdx == -1 && fallbackNext && idx > 0)
+      fallbackIdx = idx - 1; /* hidden row was last; anchor the new last row */
+
    if (this->following == -1) {
-      if (stableActive && stableFoundIdx != -1) {
+      if (fallbackIdx != -1) {
+         /* No visible target for the pending selection: anchor the nearest
+            surviving row at the same screen position */
+         Panel_setSelected(this->panel, fallbackIdx);
+         int newScrollV = fallbackIdx - stableOffset;
+         if (newScrollV < 0)
+            newScrollV = 0;
+         this->panel->scrollV = newScrollV;
+         this->panel->allowExcessScrollV = true;
+      } else if (!foundPendingSelection && stableActive && stableFoundIdx != -1) {
          /* Stable tree view: keep the anchor row at the same screen line.
             In hard mode, scrollV may go negative to render empty lines above row 0,
             but only when the root is not selected (reset to 0 when root is at the top).
@@ -339,7 +416,7 @@ void Table_rebuildPanel(Table* this) {
          this->panel->scrollV = newScrollV;
          this->panel->allowExcessScrollV = true;
          this->stableLastIdx = stableFoundIdx;
-      } else {
+      } else if (!foundPendingSelection) {
          /* Normal behavior: restore position by index */
          if (currPos > 0 && currPos == currSize - 1)
             Panel_setSelected(this->panel, Panel_size(this->panel) - 1);
@@ -372,10 +449,14 @@ void Table_printHeader(const Settings* settings, RichString* header) {
    const RowField* fields = ss->fields;
 
    RowField key = ScreenSettings_getActiveSortKey(ss);
+   int pinnedCount = RowField_pinnedCount(settings);
 
    for (int i = 0; fields[i]; i++) {
       int color;
-      if (ss->treeView && ss->treeViewAlwaysByPID) {
+      bool isPinned = (i < pinnedCount);
+      if (isPinned) {
+         color = CRT_colors[PANEL_HEADER_PINNED];
+      } else if (ss->treeView && ss->treeViewAlwaysByPID) {
          color = CRT_colors[PANEL_HEADER_FOCUS];
       } else if (key == fields[i]) {
          color = CRT_colors[PANEL_SELECTION_FOCUS];

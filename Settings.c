@@ -33,19 +33,27 @@ in the source distribution for its full text.
 
 
 static void Settings_deleteColumns(Settings* this) {
+   if (!this->hColumns)
+      return;
+
    for (size_t i = 0; i < HeaderLayout_getColumns(this->hLayout); i++) {
       String_freeArray(this->hColumns[i].names);
       free(this->hColumns[i].modes);
    }
+
    free(this->hColumns);
+   this->hColumns = NULL;
 }
 
 static void Settings_deleteScreens(Settings* this) {
-   if (this->screens) {
-      for (size_t i = 0; this->screens[i]; i++)
-         ScreenSettings_delete(this->screens[i]);
-      free(this->screens);
-   }
+   if (!this->screens)
+      return;
+
+   for (size_t i = 0; this->screens[i]; i++)
+      ScreenSettings_delete(this->screens[i]);
+
+   free(this->screens);
+   this->screens = NULL;
 }
 
 void Settings_delete(Settings* this) {
@@ -64,11 +72,28 @@ static char** Settings_splitLineToIDs(const char* line) {
 }
 
 static void Settings_readMeters(Settings* this, const char* line, size_t column) {
-   column = MINIMUM(column, HeaderLayout_getColumns(this->hLayout) - 1);
-   this->hColumns[column].names = Settings_splitLineToIDs(line);
+   const size_t maxColumn = HeaderLayout_getColumns(this->hLayout);
+   if (column >= maxColumn)
+      return;
+
+   MeterColumnSetting* mcs = &this->hColumns[column];
+
+   if (mcs->names)
+      String_freeArray(mcs->names);
+
+   mcs->names = Settings_splitLineToIDs(line);
 }
 
 static void Settings_readMeterModes(Settings* this, const char* line, size_t column) {
+   const size_t maxColumn = HeaderLayout_getColumns(this->hLayout);
+   if (column >= maxColumn)
+      return;
+
+   MeterColumnSetting* mcs = &this->hColumns[column];
+
+   if (mcs->modes)
+      free(mcs->modes);
+
    char** ids = Settings_splitLineToIDs(line);
 
    size_t len = 0;
@@ -76,18 +101,21 @@ static void Settings_readMeterModes(Settings* this, const char* line, size_t col
       len++;
    }
 
-   column = MINIMUM(column, HeaderLayout_getColumns(this->hLayout) - 1);
-   this->hColumns[column].len = len;
-   MeterModeId* modes = len ? xCalloc(len, sizeof(MeterModeId)) : NULL;
+   mcs->modes = len ? xCalloc(len, sizeof(MeterModeId)) : NULL;
+
    for (size_t i = 0; i < len; i++) {
-      modes[i] = (MeterModeId) atoi(ids[i]);
+      mcs->modes[i] = (MeterModeId) atoi(ids[i]);
    }
-   this->hColumns[column].modes = modes;
+
+   mcs->len = len;
 
    String_freeArray(ids);
 }
 
 static bool Settings_validateMeters(Settings* this) {
+   if (!this->hColumns)
+      return false;
+
    const size_t colCount = HeaderLayout_getColumns(this->hLayout);
 
    bool anyMeter = false;
@@ -97,21 +125,27 @@ static bool Settings_validateMeters(Settings* this) {
       const MeterModeId* modes = this->hColumns[column].modes;
       const size_t len = this->hColumns[column].len;
 
-      if (!len)
+      if (!len) {
+         if ((names && names[0]) || modes)
+            return false;
          continue;
+      }
 
       if (!names || !modes)
          return false;
 
-      anyMeter |= !!len;
+      anyMeter = true;
 
-      // Check for each mode there is an entry with a non-NULL name
+      size_t nameCount = 0;
+      while (names[nameCount])
+         nameCount++;
+
+      if (nameCount != len)
+         return false;
+
       for (size_t meterIdx = 0; meterIdx < len; meterIdx++)
          if (!names[meterIdx])
             return false;
-
-      if (names[len])
-         return false;
    }
 
    return anyMeter;
@@ -288,12 +322,11 @@ static void ScreenSettings_readFields(ScreenSettings* ss, Hashtable* columns, co
    memset(ss->fields, '\0', LAST_PROCESSFIELD * sizeof(ProcessField));
 
    for (size_t j = 0, i = 0; ids[i]; i++) {
-      if (j >= UINT_MAX / sizeof(ProcessField))
+      if (j >= UINT_MAX / sizeof(ProcessField) - 1)
          continue;
-      if (j >= LAST_PROCESSFIELD) {
-         ss->fields = xRealloc(ss->fields, (j + 1) * sizeof(ProcessField));
-         memset(&ss->fields[j], 0, sizeof(ProcessField));
-      }
+      /* keep one slot spare, so the list always ends in a NULL_FIELD entry */
+      if (j + 1 >= LAST_PROCESSFIELD)
+         ss->fields = xReallocArrayZero(ss->fields, j + 1, j + 2, sizeof(ProcessField));
       int id = toFieldIndex(columns, ids[i]);
       if (id >= 0)
          ss->fields[j++] = id;
@@ -448,13 +481,15 @@ static bool Settings_read(Settings* this, const char* fileName, const Machine* h
       } else if (String_eq(option[0], "sort_key") && this->config_version <= 2) {
          // old (no screen) naming also supported for backwards compatibility
          // This "+1" is for compatibility with the older enum format.
+         int key = toFieldIndex(this->dynamicColumns, option[1]);
          screen = Settings_defaultScreens(this);
-         screen->sortKey = atoi(option[1]) + 1;
+         screen->sortKey = key > 0 ? key : PID;
       } else if (String_eq(option[0], "tree_sort_key") && this->config_version <= 2) {
          // old (no screen) naming also supported for backwards compatibility
          // This "+1" is for compatibility with the older enum format.
+         int key = toFieldIndex(this->dynamicColumns, option[1]);
          screen = Settings_defaultScreens(this);
-         screen->treeSortKey = atoi(option[1]) + 1;
+         screen->treeSortKey = key > 0 ? key : PID;
       } else if (String_eq(option[0], "sort_direction") && this->config_version <= 2) {
          // old (no screen) naming also supported for backwards compatibility
          screen = Settings_defaultScreens(this);
@@ -523,6 +558,8 @@ static bool Settings_read(Settings* this, const char* fileName, const Machine* h
          this->countCPUsFromOne = !atoi(option[1]);
       } else if (String_eq(option[0], "show_cpu_smt_labels")) {
          this->showCPUSMTLabels = atoi(option[1]);
+      } else if (String_eq(option[0], "hide_offline_cpus")) {
+         this->hideOfflineCPUs = atoi(option[1]);
       } else if (String_eq(option[0], "show_cpu_usage")) {
          this->showCPUUsage = atoi(option[1]);
       } else if (String_eq(option[0], "sticky_follow")) {
@@ -553,10 +590,10 @@ static bool Settings_read(Settings* this, const char* fileName, const Machine* h
          this->enableMouse = atoi(option[1]);
       #endif
       } else if (String_eq(option[0], "header_layout")) {
+         Settings_deleteColumns(this);
          this->hLayout = isdigit((unsigned char)option[1][0]) ? ((HeaderLayout) atoi(option[1])) : HeaderLayout_fromName(option[1]);
          if (this->hLayout < 0 || this->hLayout >= LAST_HEADER_LAYOUT)
             this->hLayout = HF_TWO_50_50;
-         free(this->hColumns);
          this->hColumns = xCalloc(HeaderLayout_getColumns(this->hLayout), sizeof(MeterColumnSetting));
       } else if (String_eq(option[0], "left_meters")) {
          Settings_readMeters(this, option[1], 0);
@@ -571,18 +608,32 @@ static bool Settings_read(Settings* this, const char* fileName, const Machine* h
          Settings_readMeterModes(this, option[1], 1);
          didReadMeters = true;
       } else if (String_startsWith(option[0], "column_meters_")) {
-         Settings_readMeters(this, option[1], atoi(option[0] + strlen("column_meters_")));
-         didReadMeters = true;
+         const char* colStr = option[0] + strlen("column_meters_");
+         if (isdigit((unsigned char)colStr[0])) {
+            int colIdx = atoi(colStr);
+            if (colIdx >= 0 && (size_t)colIdx < HeaderLayout_getColumns(this->hLayout)) {
+               Settings_readMeters(this, option[1], (size_t) colIdx);
+               didReadMeters = true;
+            }
+         }
       } else if (String_startsWith(option[0], "column_meter_modes_")) {
-         Settings_readMeterModes(this, option[1], atoi(option[0] + strlen("column_meter_modes_")));
-         didReadMeters = true;
+         const char* colStr = option[0] + strlen("column_meter_modes_");
+         if (isdigit((unsigned char)colStr[0])) {
+            int colIdx = atoi(colStr);
+            if (colIdx >= 0 && (size_t)colIdx < HeaderLayout_getColumns(this->hLayout)) {
+               Settings_readMeterModes(this, option[1], (size_t) colIdx);
+               didReadMeters = true;
+            }
+         }
       } else if (String_eq(option[0], "hide_function_bar")) {
          this->hideFunctionBar = atoi(option[1]);
+      } else if (String_eq(option[0], "keep_columns_visible")) {
+         this->keepColumnsVisible = MAXIMUM(atoi(option[1]), 0);
       #ifdef HAVE_LIBHWLOC
       } else if (String_eq(option[0], "topology_affinity")) {
          this->topologyAffinity = !!atoi(option[1]);
       #endif
-      } else if (strncmp(option[0], "screen:", 7) == 0) {
+      } else if (String_startsWith(option[0], "screen:")) {
          screen = Settings_newScreen(this, &(const ScreenDefaults) { .name = option[0] + 7, .columns = option[1] });
       } else if (String_eq(option[0], ".sort_key")) {
          if (screen) {
@@ -621,6 +672,69 @@ static bool Settings_read(Settings* this, const char* fileName, const Machine* h
       String_freeArray(option);
    }
    fclose(fp);
+
+   if (this->hColumns) {
+      const size_t colCount = HeaderLayout_getColumns(this->hLayout);
+      bool anyValidColumn = false;
+
+      for (size_t column = 0; column < colCount; column++) {
+         MeterColumnSetting* setting = &this->hColumns[column];
+         bool invalid = false;
+
+         if (!setting->len) {
+            if ((setting->names && setting->names[0]) || setting->modes)
+               invalid = true;
+         } else if (!setting->names || !setting->modes) {
+            invalid = true;
+         } else {
+            size_t nameCount = 0;
+            while (setting->names[nameCount])
+               nameCount++;
+
+            if (nameCount != setting->len)
+               invalid = true;
+
+            for (size_t i = 0; !invalid && i < setting->len; i++)
+               if (!setting->names[i])
+                  invalid = true;
+         }
+
+         if (invalid) {
+            String_freeArray(setting->names);
+            setting->names = NULL;
+            free(setting->modes);
+            setting->modes = NULL;
+            setting->len = 0;
+            continue;
+         }
+
+         if (setting->len)
+            anyValidColumn = true;
+      }
+
+      if (!anyValidColumn)
+         didReadMeters = false;
+   }
+
+   if (this->hideFunctionBar < 0 || this->hideFunctionBar > 2)
+      this->hideFunctionBar = 0;
+
+   for (unsigned int i = 0; i < this->nScreens; i++) {
+      ScreenSettings* ss = this->screens[i];
+      if (!ss)
+         continue;
+      if (ss->sortKey <= 0 || ss->sortKey >= LAST_PROCESSFIELD)
+         ss->sortKey = PID;
+      if (ss->treeSortKey <= 0 || ss->treeSortKey >= LAST_PROCESSFIELD)
+         ss->treeSortKey = PID;
+      if (ss->direction != -1 && ss->direction != 1)
+         ss->direction = (Process_fields[ss->sortKey].defaultSortDesc) ? -1 : 1;
+      if (ss->treeDirection != -1 && ss->treeDirection != 1)
+         ss->treeDirection = (Process_fields[ss->treeSortKey].defaultSortDesc) ? -1 : 1;
+      if (ss->stableTreeView < 0 || ss->stableTreeView > 2)
+         ss->stableTreeView = 0;
+   }
+
    if (!didReadMeters || !Settings_validateMeters(this))
       Settings_defaultMeters(this, host);
    if (!this->nScreens)
@@ -766,6 +880,7 @@ int Settings_write(const Settings* this, bool onCrash) {
    printSettingInteger("detailed_cpu_time", this->detailedCPUTime);
    printSettingInteger("cpu_count_from_one", this->countCPUsFromOne);
    printSettingInteger("show_cpu_smt_labels", this->showCPUSMTLabels);
+   printSettingInteger("hide_offline_cpus", this->hideOfflineCPUs);
    printSettingInteger("show_cpu_usage", this->showCPUUsage);
    printSettingInteger("sticky_follow", this->stickyFollow);
    printSettingInteger("show_cpu_frequency", this->showCPUFrequency);
@@ -782,6 +897,7 @@ int Settings_write(const Settings* this, bool onCrash) {
    #endif
    printSettingInteger("delay", (int) this->delay);
    printSettingInteger("hide_function_bar", (int) this->hideFunctionBar);
+   printSettingInteger("keep_columns_visible", this->keepColumnsVisible);
    #ifdef HAVE_LIBHWLOC
    printSettingInteger("topology_affinity", this->topologyAffinity);
    #endif
@@ -851,6 +967,130 @@ int Settings_write(const Settings* this, bool onCrash) {
    return r;
 }
 
+static const char* Settings_getHome(void) {
+   const char* home = getenv("HOME");
+   if (!home || home[0] != '/') {
+      const struct passwd* pw = getpwuid(getuid());
+      return (pw && pw->pw_dir && pw->pw_dir[0] == '/') ? pw->pw_dir : "";
+   }
+   return home;
+}
+
+static bool Settings_mkdirp(const char* path, mode_t mode) {
+   char* copy = xStrdup(path);
+   bool ok = true;
+   for (char* p = copy + (copy[0] == '/' ? 1 : 0); *p; p++) {
+      if (*p != '/')
+         continue;
+      *p = '\0';
+      if (mkdir(copy, mode) != 0 && errno != EEXIST)
+         ok = false;
+      *p = '/';
+   }
+   if (mkdir(copy, mode) != 0 && errno != EEXIST)
+      ok = false;
+   free(copy);
+   return ok;
+}
+
+static void Settings_migrateHistory(const char* fromPath, const char* toPath) {
+   /* O_NOFOLLOW and O_NONBLOCK ensure a symlink or FIFO planted at the path
+      cannot redirect the copy or block it. */
+   int fromFd = open(fromPath, O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
+   if (fromFd < 0)
+      return;
+
+   /* Validate the descriptor we actually opened: regular file owned by the
+      effective user. O_NOFOLLOW rejects a symlink at the final path component,
+      and fstat() rules out a swap between open() and here. */
+   struct stat sb;
+   if (fstat(fromFd, &sb) != 0 || !S_ISREG(sb.st_mode) || sb.st_uid != geteuid()) {
+      close(fromFd);
+      return;
+   }
+
+   /* O_EXCL guarantees the destination is never overwritten; once the state
+      file exists it takes precedence over the legacy copy. */
+   int toFd = open(toPath, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_NONBLOCK, 0600);
+   if (toFd < 0) {
+      close(fromFd);
+      return;
+   }
+
+   bool ok = true;
+   char buf[4096];
+   for (;;) {
+      ssize_t n = read(fromFd, buf, sizeof(buf));
+      if (n < 0) {
+         if (errno == EINTR)
+            continue;
+         ok = false;
+         break;
+      }
+      if (n == 0)
+         break;
+      if (full_write(toFd, buf, (size_t)n) != n) {
+         ok = false;
+         break;
+      }
+   }
+   if (close(fromFd) != 0)
+      ok = false;
+   if (close(toFd) != 0 || !ok) {
+      unlink(toPath);
+      return;
+   }
+
+   /* Remove the legacy file only if it still refers to the entry we copied. */
+   struct stat sbPath;
+   if (lstat(fromPath, &sbPath) == 0 && sbPath.st_dev == sb.st_dev && sbPath.st_ino == sb.st_ino)
+      (void) unlink(fromPath);
+}
+
+/* Return the legacy history path as stored beside a configuration file
+   (the old history location), or NULL when the file has no directory part. */
+static char* Settings_legacyHistoryFile(const char* configFile) {
+   const char* lastSlash = strrchr(configFile, '/');
+   if (!lastSlash)
+      return NULL;
+   char* dir = xStrndup(configFile, (size_t)(lastSlash - configFile + 1));
+   char* file = String_cat(dir, "htop_history");
+   free(dir);
+   return file;
+}
+
+char* Settings_getHistoryFile(const char* configFile) {
+   const char* xdgStateHome = getenv("XDG_STATE_HOME");
+   const char* home = Settings_getHome();
+
+   if ((!xdgStateHome || xdgStateHome[0] != '/') && !home[0])
+      return NULL;
+
+   char* stateHtopDir;
+   if (xdgStateHome && xdgStateHome[0] == '/')
+      stateHtopDir = String_cat(xdgStateHome, "/htop");
+   else
+      stateHtopDir = String_cat(home, "/.local/state/htop");
+
+   char* historyFile = String_cat(stateHtopDir, "/htop_history");
+   if (!Settings_mkdirp(stateHtopDir, 0700)) {
+      free(stateHtopDir);
+      free(historyFile);
+      return NULL;
+   }
+   free(stateHtopDir);
+
+   /* The search/filter history used to be stored next to the
+      htoprc file; migrate it if present. */
+   char* legacyFile = Settings_legacyHistoryFile(configFile);
+   if (legacyFile) {
+      Settings_migrateHistory(legacyFile, historyFile);
+      free(legacyFile);
+   }
+
+   return historyFile;
+}
+
 Settings* Settings_new(const Machine* host, Hashtable* dynamicMeters, Hashtable* dynamicColumns, Hashtable* dynamicScreens) {
    Settings* this = xCalloc(1, sizeof(Settings));
 
@@ -865,7 +1105,7 @@ Settings* Settings_new(const Machine* host, Hashtable* dynamicMeters, Hashtable*
    this->shadowOtherUsers = true;
    this->showThreadNames = false;
    this->hideKernelThreads = true;
-   this->hideUserlandThreads = false;
+   this->hideUserlandThreads = true;
    this->hideRunningInContainer = false;
    this->highlightBaseName = true;
    this->highlightDeletedExe = true;
@@ -874,6 +1114,7 @@ Settings* Settings_new(const Machine* host, Hashtable* dynamicMeters, Hashtable*
    this->detailedCPUTime = true;
    this->countCPUsFromOne = true;
    this->showCPUSMTLabels = false;
+   this->hideOfflineCPUs = false;
    this->showCPUUsage = true;
    this->stickyFollow = true;
    this->showCPUFrequency = true;
@@ -892,6 +1133,7 @@ Settings* Settings_new(const Machine* host, Hashtable* dynamicMeters, Hashtable*
    this->showMergedCommand = false;
    this->hideFunctionBar = 1;
    this->headerMargin = true;
+   this->keepColumnsVisible = 0;
    #ifdef HAVE_LIBHWLOC
    this->topologyAffinity = true;
    #endif
@@ -904,11 +1146,7 @@ Settings* Settings_new(const Machine* host, Hashtable* dynamicMeters, Hashtable*
    if (rcfile) {
       this->initialFilename = xStrdup(rcfile);
    } else {
-      const char* home = getenv("HOME");
-      if (!home || home[0] != '/') {
-         const struct passwd* pw = getpwuid(getuid());
-         home = (pw && pw->pw_dir && pw->pw_dir[0] == '/') ? pw->pw_dir : "";
-      }
+      const char* home = Settings_getHome();
       const char* xdgConfigHome = getenv("XDG_CONFIG_HOME");
       char* configDir = NULL;
       char* htopDir = NULL;

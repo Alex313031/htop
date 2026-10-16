@@ -2,7 +2,7 @@
 #define HEADER_HeaderLayout
 /*
 htop - HeaderLayout.h
-(C) 2021 htop dev team
+(C) 2021-2026 htop dev team
 Released under the GNU GPLv2+, see the COPYING file
 in the source distribution for its full text.
 */
@@ -79,6 +79,41 @@ static inline HeaderLayout HeaderLayout_fromName(const char* name) {
    }
 
    return LAST_HEADER_LAYOUT;
+}
+
+typedef struct HeaderLayoutDimensions_ {
+   int x1;
+   int x2;
+} HeaderLayoutDimensions;
+
+/*
+ * Calculate the rectangle covered by the given column of the layout,
+ * needed (consistently) for header drawing and click handling.
+ * The rectangle is computed using integer arithmetic, distributing
+ * rounding remainders onto later columns. No FP math needed here.
+ */
+static inline HeaderLayoutDimensions HeaderLayout_getColumnDimensions(HeaderLayout hLayout, int x, int width, size_t col) {
+   assert(0 <= hLayout);
+   assert(hLayout < LAST_HEADER_LAYOUT);
+
+   int carried = 0;
+   for (size_t i = 0; i < HeaderLayout_layouts[hLayout].columns; i++) {
+      int colWidth = width * HeaderLayout_layouts[hLayout].widths[i] / 100;
+      carried += width * HeaderLayout_layouts[hLayout].widths[i] % 100;
+      if (carried >= 100) {
+         carried -= 100;
+         colWidth++;
+      }
+
+      if (i == col) {
+         return (HeaderLayoutDimensions) { .x1 = x, .x2 = x + colWidth };
+      }
+
+      x += colWidth + 1; // separator column
+   }
+
+   assert(col < HeaderLayout_layouts[hLayout].columns);
+   return (HeaderLayoutDimensions) { .x1 = x, .x2 = x };
 }
 
 #endif /* HEADER_HeaderLayout */
